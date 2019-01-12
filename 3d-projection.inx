@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+<!-- Syntax see: http://wiki.inkscape.org/wiki/index.php/INX_Parameters -->
+  <name>3D Projection</name>
+  <id>com.github.jnweiger.inskscape-3d-projection</id>
+  <dependency type="extension">org.inkscape.output.svg.inkscape</dependency>
+  <dependency type="executable" location="extensions">inkex.py</dependency>
+  <dependency type="executable" location="extensions">3d-projection.py</dependency>
+  <param name="tab" type="notebook">
+    <page name='settings' gui-text='Settings'>
+      <param name="header_cut" type="description" appearance="header">Rotation</param>
+
+      <param name="rotation" type="notebook">
+        <page name='standard_rot' gui-text='Standard Rotation'>
+          <param name="standard_projection" type="enum" gui-text="">
+            <item value="none">None</item>
+            <item value="x-90">X-Axis: -90°</item>
+            <item value="x+90">X-Axis: +90°</item>
+            <item value="y-90">Y-Axis: -90°</item>
+            <item value="y+90">Y-Axis: +90°</item>
+            <item value="z-90">Z-Axis: -90°</item>
+            <item value="z+90">Z-Axis: +90°</item>
+           </param>
+        </page>
+        <page name='manual_rot' gui-text='Free Rotation'>
+          <param name="rotation_x" type="float" min="-360" max="360" appearance="full" gui-text="X-Axis [°]:  ">90</param>
+          <param name="rotation_y" type="float" min="-360" max="360" appearance="full" gui-text="Y-Axis [°]:  ">0</param>
+          <param name="rotation_z" type="float" min="-360" max="360" appearance="full" gui-text="Z-Axis [°]:  ">0</param>
+        </page>
+      </param>
+
+      <param name="spacer" type="description"> </param>
+
+      <param name="header_cut" type="description" appearance="header">Projection</param>
+
+      <param name="projection" type="notebook">
+        <page name='standard_proj' gui-text='Standard Projection'>
+          <param name="standard_projection" type="enum" gui-text="">
+            <item value="7,42">Dimetric right: 7°, 42°</item>
+            <item value="42,7">Dimetric left: 42°, 7°</item>
+            <item value="30,30">Isometric: 30°, 30°</item>
+           </param>
+        </page>
+        <page name='trimetric' gui-text='Trimetric'>
+          <param name="trimetric_x" type="int" min="0" max="90" appearance="full" gui-text="X [°]:  ">7</param>
+          <param name="trimetric_y" type="int" min="0" max="90" appearance="full" gui-text="Z [°]:  ">42</param>
+        </page>
+      </param>
+
+    </page>
+
+    <page name='advanced' gui-text='Advanced'>
+      <param name="depth" type="float" min="0" max="1000" gui-text="Depth ('z-size') [mm]">10</param>
+      <param name="apply_depth" type="enum" gui-text="Apply depth to:">
+            <item value="red_black">stroke color red or black</item>
+            <item value="red">stroke color red</item>
+            <item value="green_blue">stroke color green or blue</item>
+            <item value="green">stroke color green</item>
+            <item value="not_red_black">any stroke color except red or black</item>
+            <item value="not_red">any stroke color except red</item>
+            <item value="not_green_blue">any stroke color except green or blue</item>
+            <item value="not_green">any stroke color except green</item>
+            <item value="any">any stroke color</item>
+            <item value="none">nothing</item>
+      </param>
+      <param name="spacer" type="description"> </param>
+      <param name="layer" type="string" gui-text="Destination Layer name">3d-proj</param>
+    </page>
+
+    <page name='about' gui-text='About '>
+      <param name="about_what" type="description" xml:space="preserve">The 3d-projection extension transforms paths to create the illusion of a 3D projection. This can be used to visualize how (e.g. lasercut) parts are assembled into three-dimensional objects.
+</param>
+      <param name="about_who" type="description" xml:space="preserve">From https://github.com/jnweiger/inkscape-3d-projection
+
+(C) 2019 by Jürgen Weigert [juergen@fabmail.org]
+
+</param>
+
+      <!-- Keep in sync with projection.py line 44 __version__ = ... -->
+
+      <param name="about_version" type="description">Version 0.1</param>
+    </page>
+  </param>
+
+  <effect needs-live-preview="false" >
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu _name="Modify Path"/>
+    </effects-menu>
+  </effect>
+
+  <script>
+      <command reldir="extensions" interpreter="python">3d-projection.py</command>
+  </script>
+</inkscape-extension>
