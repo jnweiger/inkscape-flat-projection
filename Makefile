@@ -22,9 +22,9 @@ check:
 
 
 $(EXTNAME).py:
-	sed >  $@ -e '/INLINE_BLOCK_START/,$$d' < src/projection.py
+	sed >  $@ -e '/INLINE_BLOCK_START/,$$d' < src/proj.py
 	sed >> $@ -e '/if __name__ ==/,$$d' < src/inksvg.py
-	sed >> $@ -e '1,/INLINE_BLOCK_END/d' < src/projection.py
+	sed >> $@ -e '1,/INLINE_BLOCK_END/d' < src/proj.py
 
 #install and install_de is used by deb/dist.sh
 install:
