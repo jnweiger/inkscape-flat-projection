@@ -46,7 +46,7 @@ tar_dist:
 	rm -rf dist
 
 clean:
-	rm -f $(EXTNAME).py *.inx
+	rm -f $(EXTNAME).py
 	rm -f *.orig */*.orig
 	rm -rf distribute/$(DISTNAME)
 	rm -rf distribute/deb/files

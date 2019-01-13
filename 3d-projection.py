@@ -1167,9 +1167,11 @@ class Projection3D(inkex.Effect):
         """
 Option parser example:
 
-'proj.py', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
+'3d-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
 
         """
+        # above example generated with inkex.errormsg(repr(sys.argv))
+        #
         inkex.localize()    # does not help for localizing my *.inx file
         inkex.Effect.__init__(self)
 
@@ -1269,6 +1271,7 @@ Option parser example:
             print("Version "+self.__version__)
             sys.exit(0)
 
+        # inkex.errormsg(repr(sys.argv))
         inkex.errormsg(gettext.gettext('ERROR: =================== Unfinsihed work here ============================'))
         sys.exit(1)
 
@@ -1425,5 +1428,5 @@ Option parser example:
 
 
 if __name__ == '__main__':
-    e = ThunderLaser()
+    e = Projection3D()
     e.affect()
