@@ -18,7 +18,7 @@ dist:   build check
 	cd distribute; sh ./distribute.sh
 
 check:
-	echo Not done: test/test.sh
+	sh test/test.sh
 
 
 $(EXTNAME).py:

@@ -60,6 +60,7 @@ else:   # Linux
 #                      Added load(), getElementsByIds() methods.
 # 2018-03-21 jw, v1.7d Added handleViewBox() to load().
 #                      Added traverse().
+# 2019-01-12 jw, v1.7e debug output to self.tty
 
 import gettext
 import re
@@ -143,7 +144,7 @@ class LinearPathGen(PathGenerator):
         """
         d is expected formatted as an svg path string here.
         """
-        print("calling getPathVertices",  self.smoothness)
+        print("calling getPathVertices",  self.smoothness, file=self._svg.tty)
         self._svg.getPathVertices(d, node, mat, self.smoothness)
 
     def pathList(self, d, node, mat):
@@ -174,7 +175,7 @@ class LinearPathGen(PathGenerator):
         self.pathList(a, node, mat)
 
     def objRoundedRect(self, x, y, w, h, rx, ry, node, mat):
-        print("calling roundedRectBezier")
+        print("calling roundedRectBezier", file=self.tty)
         d = self._svg.roundedRectBezier(x, y, w, h, rx, ry)
         self._svg.getPathVertices(d, node, mat, self.smoothness)
 
@@ -240,10 +241,10 @@ class InkSvg():
     #    svg = InkSvg(pathgen=LinearPathGen(smoothness=0.01))
     #    svg.load(svgfile)
     #    svg.traverse([ids...])
-    #    print(svg.pathgen.path)
+    #    print(svg.paths)
 
     """
-    __version__ = "1.7c"
+    __version__ = "1.7e"
     DEFAULT_WIDTH = 100
     DEFAULT_HEIGHT = 100
 
@@ -399,7 +400,7 @@ class InkSvg():
         for sub in p:
             idash = 0
             dash = dashes[0]
-            # print("initial dash length: ", dash, dashoffset)
+            # print("initial dash length: ", dash, dashoffset, file=self.tty)
             dash = dash - dashoffset
             length = 0
             new.append([sub[0][:]])
@@ -580,7 +581,7 @@ class InkSvg():
         return v, u
 
 
-    def __init__(self, document=None, svgfile=None, smoothness=0.2, pathgen=LinearPathGen(smoothness=0.2)):
+    def __init__(self, document=None, svgfile=None, smoothness=0.2, debug=False, pathgen=LinearPathGen(smoothness=0.2)):
         """
         Usage: ...
         """
@@ -588,6 +589,13 @@ class InkSvg():
         self.px_used = False            # raw px unit depends on correct dpi.
         self.xmin, self.xmax = (1.0E70, -1.0E70)
         self.ymin, self.ymax = (1.0E70, -1.0E70)
+
+        try:
+            if debug == False: raise ValueError('intentional exception')
+            self.tty = open("/dev/tty", 'w')
+        except:
+            from os import devnull
+            self.tty = open(devnull, 'w')  # '/dev/null' for POSIX, 'nul' for Windows.
 
         # CAUTION: smoothness here is deprecated. it belongs into pathgen, if.
         # CAUTION: smoothness == 0.0 leads to a busy-loop.
@@ -1174,6 +1182,12 @@ Option parser example:
         #
         inkex.localize()    # does not help for localizing my *.inx file
         inkex.Effect.__init__(self)
+        try:
+            self.tty = open("/dev/tty", 'w')
+        except:
+            from os import devnull
+            self.tty = open(devnull, 'w')  # '/dev/null' for POSIX, 'nul' for Windows.
+        print("Projection3D " + self.__version__, file=self.tty)
 
         self.OptionParser.add_option(
             "--tab",  # NOTE: value is not used.
@@ -1244,6 +1258,7 @@ Option parser example:
           action = 'store_const', const=True, dest = 'version', default = False,
           help='Just print version number ("'+self.__version__+'") and exit.')
 
+
     def colorname2rgb(self, name):
         if name is None:      return None
         if name == 'none':    return False
@@ -1259,6 +1274,28 @@ Option parser example:
         raise ValueError("unknown colorname: "+name)
 
 
+    def is_extrude_color(self, svg, node, apply_color):
+        """
+        apply_color is one of the option values defined for the --apply_depth option
+        """
+        apply_color = re.split('[ _-]', apply_color.lower())
+        nomatch = False
+        if apply_color[0] == 'not':
+          nomatch = True
+          apply_color = apply_color[1:]
+        for c in apply_color:
+          if svg.matchStrokeColor(node, self.colorname2rgb(c)):
+            return(not nomatch)
+        return nomatch
+
+    def find_selected_id(self, node):
+        while node is not None:
+          id = node.attrib.get('id', '')
+          if id in self.selected: return id
+          node = node.getparent()
+        return None
+
+
     def effect(self):
         smooth = float(self.options.smoothness) # svg.smoothness to be deprecated!
         pg = LinearPathGen(smoothness=smooth)
@@ -1271,22 +1308,23 @@ Option parser example:
             print("Version "+self.__version__)
             sys.exit(0)
 
-        # inkex.errormsg(repr(sys.argv))
-        inkex.errormsg(gettext.gettext('ERROR: =================== Unfinsihed work here ============================'))
-        sys.exit(1)
+        ## First find or create find the destination layer
+        ns = { 'svg': 'http://www.w3.org/2000/svg',
+               'inkscape': 'http://www.inkscape.org/namespaces/inkscape', 
+               'sodipodi': 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd' }
+        dest_layer = None
+        for i in self.current_layer.findall("../*[@inkscape:groupmode='layer']", ns):        # all potential layers 
+            if self.options.dest_layer in (i.attrib.get('id', ''), i.attrib.get('label', ''), i.attrib.get('name', '')):
+                dest_layer = i
+        if dest_layer is None:
+            # print('Creating dest_layer', self.options.dest_layer, file=self.tty)
+            dest_layer = inkex.etree.SubElement(self.current_layer.find('..'), 'g', {
+              inkex.addNS('label','inkscape'): self.options.dest_layer,
+              inkex.addNS('groupmode','inkscape'): 'layer',
+              'id': self.options.dest_layer })
+        print('dest_layer', dest_layer, dest_layer.attrib, file=self.tty)
 
-        cut_opt  = self.cut_options()
-        mark_opt = self.mark_options()
-        if cut_opt is None and mark_opt is None:
-          inkex.errormsg(gettext.gettext('ERROR: Enable Cut or Mark or both.'))
-          sys.exit(1)
-        if cut_opt is not None and mark_opt is not None and cut_opt['color'] == mark_opt['color']:
-          inkex.errormsg(gettext.gettext('ERROR: Choose different color settings for Cut and Mark. Both are "'+mark_opt['color']+'"'))
-          sys.exit(1)
-        mark_color = self.colorname2rgb(None if mark_opt is None else mark_opt['color'])
-        cut_color  = self.colorname2rgb(None if  cut_opt is None else  cut_opt['color'])
-
-        # First traverse the document (or selected items), reducing
+        # Second traverse the document (or selected items), reducing
         # everything to line segments.  If working on a selection,
         # then determine the selection's bounding box in the process.
         # (Actually, we just need to know it's extrema on the x-axis.)
@@ -1302,7 +1340,7 @@ Option parser example:
 
 
         ## First simplification: paths_tupls[]
-        ## Remove the bounding boxes from paths. Replace the object with its id. We can still access color and style attributes through the id.
+        ## Remove the bounding boxes from paths
         ## from (<Element {http://www.w3.org/2000/svg}path at 0x7fc446a583b0>,
         ##                  [[[[207, 744], [264, 801]], [207, 264, 744, 801]], [[[207, 801], [264, 744]], [207, 264, 744, 801]], ...])
         ## to   (<Element {http://www.w3.org/2000/svg}path at 0x7fc446a583b0>,
@@ -1310,121 +1348,41 @@ Option parser example:
         ##
         paths_tupls = []
         for tup in svg.paths:
-                node = tup[0]
-                ll = []
-                for e in tup[1]:
-                        ll.append(e[0])
-                paths_tupls.append( (node, ll) )
+            node = tup[0]
+            ll = []
+            for e in tup[1]:
+                ll.append(e[0])
+            paths_tupls.append( (node, ll) )
         self.paths = None       # free some memory
 
-        ## Reposition the graphics, so that a corner or the center becomes origin [0,0]
-        ## Convert from dots-per-inch to mm.
-        ## Separate into Cut and Mark lists based on element style.
-        paths_list = []
-        paths_list_cut = []
-        paths_list_mark = []
-        dpi2mm = 25.4 / svg.dpi
+        print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
 
-        (xoff,yoff) = (svg.xmin, svg.ymin)                      # top left corner is origin
-        # (xoff,yoff) = (svg.xmax, svg.ymax)                      # bottom right corner is origin
-        # (xoff,yoff) = ((svg.xmax+svg.xmin)/2.0, (svg.ymax+svg.ymin)/2.0)       # center is origin
+        depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
+
+        dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
+        dest_g = {}      # map from dest_id to (group element, suffix)
+        def find_dest_g(node, dest_layer):
+            src_id = self.find_selected_id(node)
+            if src_id in dest_ids:
+              return dest_g[dest_ids[src_id]]
+            existing_ids = map(lambda x: x.attrib.get('id', ''), list(dest_layer))
+            n = 0; 
+            id = src_id+'_'+str(n)
+            while id in existing_ids:
+              n = n+1
+              id = src_id+'_'+str(n)
+            dest_ids[src_id] = id
+            dest_g[id] = ( inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': self.current_layer.attrib.get('id','')+'/'+src_id }), '_'+str(n) )
+            return dest_g[id]
+
 
         for tupl in paths_tupls:
-                (elem,paths) = tupl
-                for path in paths:
-                        newpath = []
-                        for point in path:
-                                newpath.append([(point[0]-xoff) * dpi2mm, (point[1]-yoff) * dpi2mm])
-                        paths_list.append(newpath)
-                        is_mark = svg.matchStrokeColor(elem, mark_color)
-                        is_cut  = svg.matchStrokeColor(elem,  cut_color)
-                        if is_cut and is_mark:          # never both. Named colors win over 'any'
-                                if mark_opt['color'] == 'any':
-                                        is_mark = False
-                                else:                   # cut_opt['color'] == 'any'
-                                        is_cut = False
-                        if is_cut:  paths_list_cut.append(newpath)
-                        if is_mark: paths_list_mark.append(newpath)
-        paths_tupls = None      # save some memory
-        bbox = [[(svg.xmin-xoff)*dpi2mm, (svg.ymin-yoff)*dpi2mm], [(svg.xmax-xoff)*dpi2mm, (svg.ymax-yoff)*dpi2mm]]
+            (elem,paths) = tupl
+            for path in paths:
+                (g,suf) = find_dest_g(elem, dest_layer)
+                print(suf, g, self.is_extrude_color(svg, elem, self.options.apply_depth), repr(elem.attrib), file=self.tty)
+                
 
-        rd = Ruida()
-        # bbox = rd.boundingbox(paths_list)     # same as above.
-
-        if self.options.bbox_only:
-                paths_list = [[ [bbox[0][0],bbox[0][1]], [bbox[1][0],bbox[0][1]], [bbox[1][0],bbox[1][1]],
-                                [bbox[0][0],bbox[1][1]], [bbox[0][0],bbox[0][1]] ]]
-                paths_list_cut = paths_list
-                paths_list_mark = paths_list
-                if cut_opt['color']  == 'any' or mark_opt is None: paths_list_mark = []
-                if mark_opt['color'] == 'any' or  cut_opt is None: paths_list_cut  = []      # once is enough.
-        if self.options.move_only:
-                paths_list      = rd.paths2moves(paths_list)
-                paths_list_cut  = rd.paths2moves(paths_list_cut)
-                paths_list_mark = rd.paths2moves(paths_list_mark)
-
-        if self.options.dummy:
-                with open('/tmp/thunderlaser.json', 'w') as fd:
-                        json.dump({
-                                'paths_bbox': bbox,
-                                'cut_opt': cut_opt, 'mark_opt': mark_opt,
-                                'paths_unit': 'mm', 'svg_resolution': svg.dpi, 'svg_resolution_unit': 'dpi',
-                                'freq1': self.options.freq1, 'freq1_unit': 'kHz',
-                                'paths': paths_list,
-                                'cut':  { 'paths':paths_list_cut,  'color': cut_color  },
-                                'mark': { 'paths':paths_list_mark, 'color': mark_color },
-                                }, fd, indent=4, sort_keys=True, encoding='utf-8')
-                print("/tmp/thunderlaser.json written.", file=sys.stderr)
-        else:
-                if len(paths_list_cut) > 0 and len(paths_list_mark) > 0:
-                  nlay=2
-                else:
-                  nlay=1
-
-                if bbox[0][0] < 0 or bbox[0][1] < 0:
-                        inkex.errormsg(gettext.gettext('Warning: negative coordinates not implemented in class Ruida(), truncating at 0'))
-                # rd.set(globalbbox=bbox)       # Not needed. Even slightly wrong.
-                rd.set(nlayers=nlay)
-
-                l=0
-                if mark_opt is not None:
-                  if len(paths_list_mark) > 0:
-                    cc = mark_color if type(mark_color) == list else [128,0,64]
-                    rd.set(layer=l, speed=mark_opt['speed'], color=cc)
-                    rd.set(layer=l, power=[mark_opt['minpow'], mark_opt['maxpow']])
-                    rd.set(layer=l, paths=paths_list_mark)
-                    l += 1
-                  else:
-                    if mark_opt['color'] != 'any' and len(paths_list_cut) == 0:
-                      inkex.errormsg(gettext.gettext('ERROR: mark line color "'+mark_opt['color']+'": nothing found.'))
-                      sys.exit(0)
-
-                if cut_opt is not None:
-                  if len(paths_list_cut) > 0:
-                    cc = cut_color if type(cut_color) == list else [128,0,64]
-                    rd.set(layer=l, speed=cut_opt['speed'], color=cc)
-                    rd.set(layer=l, power=[cut_opt['minpow'], cut_opt['maxpow']])
-                    rd.set(layer=l, paths=paths_list_cut)
-                    l += 1
-                  else:
-                    if cut_opt['color'] != 'any' and len(paths_list_mark) == 0:
-                      inkex.errormsg(gettext.gettext('ERROR: cut line color "'+cut_opt['color']+'": nothing found.'))
-                      sys.exit(0)
-
-                device_used = None
-                for device in self.options.devicelist.split(','):
-                    fd = None
-                    try:
-                        fd = open(device, 'wb')
-                    except:
-                        pass
-                    if fd is not None:
-                        rd.write(fd)
-                        # print(device+" written.", file=sys.stderr)
-                        device_used = device
-                        break
-                if device_used is None:
-                        inkex.errormsg(gettext.gettext('Warning: no usable devices in device list (or bad directoy): '+self.options.devicelist))
 
 
 if __name__ == '__main__':
