@@ -2,7 +2,7 @@
  
 !define AppName "Inkscape Erweiterung 3D-Projeciton"
 !define AppVersion "v0.1"
-!define ShortName "inkscape-3d-projection"
+!define ShortName "inkscape-flat-projection"
 !define Vendor "Fab Lab Region Nürnberg e.V."
 !define Author "(C) 2019 Juergen Weigert <uergen@fabmail.org>"
  
@@ -19,7 +19,7 @@ OutFile "../out/${ShortName}-de-${AppVersion}-setup.exe"
 Section "${AppName}"
  ; OutPath according to http://www.inkscapeforum.com/viewtopic.php?t=4205
  SetOutPath "$PROGRAMFILES64\inkscape\share\extensions"
- File "3d-projection.py"
- File "3d-projection.inx"
+ File "flat-projection.py"
+ File "flat-projection.inx"
 SectionEnd
 

@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 #
-# proj.py -- apply a transformation matrix to an svg object
+# flatproj.py -- apply a transformation matrix to an svg object
 #
 # (C) 2019 Juergen Weigert <juergen@fabmail.org>
 # Distribute under GPLv2 or ask.
@@ -9,6 +9,10 @@
 # inkscape-paths2openscad and inkscape-silhouette contain copies of recursivelyTraverseSvg()
 # with almost identical features, but different inmplementation details. The version used here is derived from
 # inkscape-paths2openscad.
+#
+# Dimetric 7,42: Rotate(Y, 69,7°), Rotate(X, 19,4°)
+# Isometric:     Rotate(Y, 45°),   Rotate(X, degrees(atan(1/sqrt2)))    # 35.26439°
+#
 #
 # python2 compatibility:
 from __future__ import print_function
@@ -25,7 +29,7 @@ else:   # Linux
 
 
 ## INLINE_BLOCK_START
-# for easier distribution, our Makefile can inline these imports when generating 3d-projection.py from src/proj.py
+# for easier distribution, our Makefile can inline these imports when generating flat-projection.py from src/flatproj.py
 from inksvg import InkSvg, LinearPathGen
 ## INLINE_BLOCK_END
 
@@ -42,14 +46,14 @@ if sys.version_info.major < 3:
 
 class Projection3D(inkex.Effect):
 
-    # CAUTION: Keep in sync with 3d-projection.inx and 3d-projection_de.inx
+    # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
     __version__ = '0.3'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
 Option parser example:
 
-'3d-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
+'flat-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
 
         """
         # above example generated with inkex.errormsg(repr(sys.argv))
@@ -103,17 +107,17 @@ Option parser example:
 
 
         self.OptionParser.add_option(
-            '--trimetric_projection_x', dest='trimetric_projection_x', type='float', default=float(7.0), action='store',
-            help='apparent angle of the x-axis in free trimetric projection mode. Measured from the negative world x-axis. Used when projection_type=trimetric_projection')
+            '--trimetric_projection_y', dest='trimetric_projection_y', type='float', default=float(19.4), action='store',
+            help='Manally define a projection, by first(!) rotating about the y-axis. Used when projection_type=trimetric_projection')
 
         self.OptionParser.add_option(
-            '--trimetric_projection_y', dest='trimetric_projection_y', type='float', default=float(42.0), action='store',
-            help='apparent angle of the y-axis in free trimetric projection mode. Measured from the positive world x-axis. Used when projection_type=trimetric_projection')
+            '--trimetric_projection_x', dest='trimetric_projection_x', type='float', default=float(69.7), action='store',
+            help='Manally define a projection, by second(!) rotating about the x-axis. Used when projection_type=trimetric_projection')
 
 
         self.OptionParser.add_option(
             "--depth", action="store", type="float", dest="depth", default=float(10.0),
-            help="Extrusion length along the Z-axis. Applied to some, all, or none paths of the svg object, to convert it to a 3d object.")
+            help="Extrusion length along the Z-axis. Applied to some, all, or none paths of the svg object, to convert it to a 3D object.")
 
         self.OptionParser.add_option(
             "--apply_depth", action="store", type="string", dest="apply_depth", default="red",

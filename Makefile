@@ -1,7 +1,7 @@
 # a simple makefile to pull a tar ball.
 
 PREFIX?=/usr
-EXTNAME=3d-projection
+EXTNAME=flat-projection
 DISTNAME=inkscape-$(EXTNAME)
 EXCL=--exclude \*.orig --exclude \*.pyc
 ALL=README.md *.png *.sh *.rules *.py *.inx
@@ -22,9 +22,9 @@ check:
 
 
 $(EXTNAME).py:
-	sed >  $@ -e '/INLINE_BLOCK_START/,$$d' < src/proj.py
+	sed >  $@ -e '/INLINE_BLOCK_START/,$$d' < src/flatproj.py
 	sed >> $@ -e '/if __name__ ==/,$$d' < src/inksvg.py
-	sed >> $@ -e '1,/INLINE_BLOCK_END/d' < src/proj.py
+	sed >> $@ -e '1,/INLINE_BLOCK_END/d' < src/flatproj.py
 
 #install and install_de is used by deb/dist.sh
 install:

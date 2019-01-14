@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
 <!-- Syntax see: http://wiki.inkscape.org/wiki/index.php/INX_Parameters -->
-  <name>3D Projection</name>
-  <id>com.github.jnweiger.inskscape-3d-projection</id>
+  <name>Flat Projection</name>
+  <id>com.github.jnweiger.inskscape-flat-projection</id>
   <dependency type="extension">org.inkscape.output.svg.inkscape</dependency>
   <dependency type="executable" location="extensions">inkex.py</dependency>
-  <dependency type="executable" location="extensions">3d-projection.py</dependency>
+  <dependency type="executable" location="extensions">flat-projection.py</dependency>
   <param name="tab" type="notebook">
     <page name='settings' gui-text='Settings'>
       <param name="header_cut" type="description" appearance="header">Rotation</param>
@@ -44,9 +44,12 @@
            <param name="standard_projection_autoscale" type="boolean" gui-text="preserve scale 1:1">true</param>
            <param name="standard_projection_autoscale_help" type="description">Projecting a 3D object onto a plane usually shortens apparent lengths. With dimetric and isometric projections this can be compensated to preserve scale. (The z-axis in dimetric projection has scale 0.5)</param>
         </page>
-        <page name='trimetric_projection' gui-text='Trimetric'>
-          <param name="trimetric_projection_x" type="int" min="0" max="90" appearance="full" gui-text="X [°]:  ">7</param>
-          <param name="trimetric_projection_y" type="int" min="0" max="90" appearance="full" gui-text="Z [°]:  ">42</param>
+        <page name='trimetric_projection' gui-text='Trimetric (free)'>
+          <param name="trimetric_projection_y" type="float" min="-180" max="180" appearance="full" gui-text="Y [°]:  ">69.7</param>
+          <param name="trimetric_projection_x" type="float" min="-180" max="180" appearance="full" gui-text="X [°]:  ">19.4</param>
+           <param name="trimetric_projection_help" type="description">We first apply Y, then X-axis rotation. 
+y=69.7°; x=19.4° creates the dimetric projection where the axes appear at 7° / 42°. 
+y=45°; x=35.26439° creates the isometric projection where the axes appear at 30° / 30°. </param>
         </page>
       </param>
 
@@ -77,9 +80,9 @@
     </page>
 
     <page name='about' gui-text='About '>
-      <param name="about_what" type="description" xml:space="preserve">The 3d-projection extension transforms paths to create the illusion of a 3D projection. This can be used to visualize how (e.g. lasercut) parts are assembled into three-dimensional objects.
+      <param name="about_what" type="description" xml:space="preserve">The flat-projection extension transforms paths to create the illusion of a 3D projection. This can be used to visualize how (e.g. lasercut) parts are assembled into three-dimensional objects.
 </param>
-      <param name="about_who" type="description" xml:space="preserve">From https://github.com/jnweiger/inkscape-3d-projection
+      <param name="about_who" type="description" xml:space="preserve">From https://github.com/jnweiger/inkscape-flat-projection
 
 (C) 2019 by Jürgen Weigert [juergen@fabmail.org]
 
@@ -99,6 +102,6 @@
   </effect>
 
   <script>
-      <command reldir="extensions" interpreter="python">3d-projection.py</command>
+      <command reldir="extensions" interpreter="python">flat-projection.py</command>
   </script>
 </inkscape-extension>

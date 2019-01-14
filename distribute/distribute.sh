@@ -1,17 +1,17 @@
 #!/bin/bash
 echo "Determining Version:"
-VERSION=$(echo '<xml height="0"/>' | python ../3d-projection.py --version /dev/stdin)	
+VERSION=$(echo '<xml height="0"/>' | python ../flat-projection.py --version /dev/stdin)
 
 test -e /usr/bin/xpath || sudo apt-get install libxml-xpath-perl
 #
 # grep Version ../*.inx
-xpath -q -e '//param[@name="about_version"]/text()' ../3d-projection.inx
+xpath -q -e '//param[@name="about_version"]/text()' ../flat-projection.inx
 echo "Version should be: \"$VERSION\""
 
 VERSION=$(echo "$VERSION" | sed -e 's/version\s*//i')
 
 
-name=inkscape-3d-projection
+name=inkscape-flat-projection
 if [ -d $name ]
 then
 	echo "Removing leftover files"
