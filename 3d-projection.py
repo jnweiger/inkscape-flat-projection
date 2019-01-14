@@ -13,7 +13,7 @@
 # python2 compatibility:
 from __future__ import print_function
 
-import sys
+import sys, time
 
 sys_platform = sys.platform.lower()
 if sys_platform.startswith('win'):
@@ -1169,7 +1169,7 @@ if sys.version_info.major < 3:
 class Projection3D(inkex.Effect):
 
     # CAUTION: Keep in sync with 3d-projection.inx and 3d-projection_de.inx
-    __version__ = '0.2'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.3'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -1310,10 +1310,10 @@ Option parser example:
 
         ## First find or create find the destination layer
         ns = { 'svg': 'http://www.w3.org/2000/svg',
-               'inkscape': 'http://www.inkscape.org/namespaces/inkscape', 
+               'inkscape': 'http://www.inkscape.org/namespaces/inkscape',
                'sodipodi': 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd' }
         dest_layer = None
-        for i in self.current_layer.findall("../*[@inkscape:groupmode='layer']", ns):        # all potential layers 
+        for i in self.current_layer.findall("../*[@inkscape:groupmode='layer']", ns):        # all potential layers
             if self.options.dest_layer in (i.attrib.get('id', ''), i.attrib.get('label', ''), i.attrib.get('name', '')):
                 dest_layer = i
         if dest_layer is None:
@@ -1366,23 +1366,61 @@ Option parser example:
             if src_id in dest_ids:
               return dest_g[dest_ids[src_id]]
             existing_ids = map(lambda x: x.attrib.get('id', ''), list(dest_layer))
-            n = 0; 
+            n = 0;
             id = src_id+'_'+str(n)
             while id in existing_ids:
               n = n+1
               id = src_id+'_'+str(n)
             dest_ids[src_id] = id
-            dest_g[id] = ( inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': self.current_layer.attrib.get('id','')+'/'+src_id }), '_'+str(n) )
+            src_path = self.current_layer.attrib.get('id','')+'/'+src_id
+            g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': src_path })
+            g1 = inkex.etree.SubElement(g, 'g', { 'id': id+'_1', 'src': src_path })
+            g2 = inkex.etree.SubElement(g, 'g', { 'id': id+'_2', 'src': src_path })
+            g3 = inkex.etree.SubElement(g, 'g', { 'id': id+'_3', 'src': src_path })
+            dest_g[id] = ( g1, g2, g3, '_'+str(n)+'_' )
             return dest_g[id]
 
 
+        def points_to_svgd(p):
+          " convert list of points into a closed SVG path list"
+          f = p[0]
+          p = p[1:]
+          closed = False
+          if abs(p[-1][0]-f[0]) < 0.000001 and abs(p[-1][1]-f[1]) < 0.000001:
+            p = p[:-1]
+            closed = True
+          svgd = 'M%.6f,%.6f' % (f[0], f[1])
+          for x in p:
+            svgd += 'L%.6f,%.6f' % (x[0], x[1])
+          if closed:
+            svgd += 'z'
+          return svgd
+
+        def paths_to_svgd(p):
+          " multiple disconnected lists of points can exist in one svg path"
+          d = ''
+          for s in p:
+            d += points_to_svgd(s) + ' '
+          return d[:-1]
+
+        missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         for tupl in paths_tupls:
             (elem,paths) = tupl
             for path in paths:
-                (g,suf) = find_dest_g(elem, dest_layer)
-                print(suf, g, self.is_extrude_color(svg, elem, self.options.apply_depth), repr(elem.attrib), file=self.tty)
-                
+                (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
+                path_id = elem.attrib.get('id', '')+suf
+                style = elem.attrib.get('style', '')
+                if path_id == suf:
+                  path_id = 'pathx'+str(missing_id)+suf
+                  missing_id += 1
 
+                # populate g1 with all colors
+                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths) })
+
+                if self.is_extrude_color(svg, elem, self.options.apply_depth):
+                  # populate also g2 and g3, with selected colors only
+                  inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths) })
+                  inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths) })
 
 
 if __name__ == '__main__':
