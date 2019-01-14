@@ -241,7 +241,7 @@ class InkSvg():
     #    svg = InkSvg(pathgen=LinearPathGen(smoothness=0.01))
     #    svg.load(svgfile)
     #    svg.traverse([ids...])
-    #    print(svg.paths)
+    #    print(svg.paths)       # all coordinates in mm
 
     """
     __version__ = "1.7e"
@@ -1357,7 +1357,7 @@ Option parser example:
 
         print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
 
-        depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
+        depth = self.options.depth * 25.4 / svg.dpi         # convert from mm to svg units
 
         dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
         dest_g = {}      # map from dest_id to (group element, suffix)
@@ -1374,14 +1374,15 @@ Option parser example:
             dest_ids[src_id] = id
             src_path = self.current_layer.attrib.get('id','')+'/'+src_id
             g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': src_path })
-            g1 = inkex.etree.SubElement(g, 'g', { 'id': id+'_1', 'src': src_path })
-            g2 = inkex.etree.SubElement(g, 'g', { 'id': id+'_2', 'src': src_path })
+            # created in reverse order, so that g1 sits on top of the visibility stack
             g3 = inkex.etree.SubElement(g, 'g', { 'id': id+'_3', 'src': src_path })
+            g2 = inkex.etree.SubElement(g, 'g', { 'id': id+'_2', 'src': src_path })
+            g1 = inkex.etree.SubElement(g, 'g', { 'id': id+'_1', 'src': src_path })
             dest_g[id] = ( g1, g2, g3, '_'+str(n)+'_' )
             return dest_g[id]
 
 
-        def points_to_svgd(p):
+        def points_to_svgd(p, scale=1.0):
           " convert list of points into a closed SVG path list"
           f = p[0]
           p = p[1:]
@@ -1389,18 +1390,18 @@ Option parser example:
           if abs(p[-1][0]-f[0]) < 0.000001 and abs(p[-1][1]-f[1]) < 0.000001:
             p = p[:-1]
             closed = True
-          svgd = 'M%.6f,%.6f' % (f[0], f[1])
+          svgd = 'M%.6f,%.6f' % (f[0]*scale, f[1]*scale)
           for x in p:
-            svgd += 'L%.6f,%.6f' % (x[0], x[1])
+            svgd += 'L%.6f,%.6f' % (x[0]*scale, x[1]*scale)
           if closed:
             svgd += 'z'
           return svgd
 
-        def paths_to_svgd(p):
+        def paths_to_svgd(paths, scale=1.0):
           " multiple disconnected lists of points can exist in one svg path"
           d = ''
-          for s in p:
-            d += points_to_svgd(s) + ' '
+          for p in paths:
+            d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
@@ -1415,12 +1416,12 @@ Option parser example:
                   missing_id += 1
 
                 # populate g1 with all colors
-                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths) })
+                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
 
                 if self.is_extrude_color(svg, elem, self.options.apply_depth):
                   # populate also g2 and g3, with selected colors only
-                  inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths) })
-                  inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths) })
+                  inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
+                  inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
 
 
 if __name__ == '__main__':

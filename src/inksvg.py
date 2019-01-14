@@ -215,7 +215,7 @@ class InkSvg():
     #    svg = InkSvg(pathgen=LinearPathGen(smoothness=0.01))
     #    svg.load(svgfile)
     #    svg.traverse([ids...])
-    #    print(svg.paths)
+    #    print(svg.paths)       # all coordinates in mm
 
     """
     __version__ = "1.7e"

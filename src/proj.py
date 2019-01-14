@@ -231,7 +231,7 @@ Option parser example:
 
         print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
 
-        depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
+        depth = self.options.depth * 25.4 / svg.dpi         # convert from mm to svg units
 
         dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
         dest_g = {}      # map from dest_id to (group element, suffix)
@@ -256,7 +256,7 @@ Option parser example:
             return dest_g[id]
 
 
-        def points_to_svgd(p):
+        def points_to_svgd(p, scale=1.0):
           " convert list of points into a closed SVG path list"
           f = p[0]
           p = p[1:]
@@ -264,18 +264,18 @@ Option parser example:
           if abs(p[-1][0]-f[0]) < 0.000001 and abs(p[-1][1]-f[1]) < 0.000001:
             p = p[:-1]
             closed = True
-          svgd = 'M%.6f,%.6f' % (f[0], f[1])
+          svgd = 'M%.6f,%.6f' % (f[0]*scale, f[1]*scale)
           for x in p:
-            svgd += 'L%.6f,%.6f' % (x[0], x[1])
+            svgd += 'L%.6f,%.6f' % (x[0]*scale, x[1]*scale)
           if closed:
             svgd += 'z'
           return svgd
 
-        def paths_to_svgd(p):
+        def paths_to_svgd(paths, scale=1.0):
           " multiple disconnected lists of points can exist in one svg path"
           d = ''
-          for s in p:
-            d += points_to_svgd(s) + ' '
+          for p in paths:
+            d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
@@ -290,12 +290,12 @@ Option parser example:
                   missing_id += 1
 
                 # populate g1 with all colors
-                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths) })
+                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
 
                 if self.is_extrude_color(svg, elem, self.options.apply_depth):
                   # populate also g2 and g3, with selected colors only
-                  inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths) })
-                  inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths) })
+                  inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
+                  inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
 
 
 if __name__ == '__main__':
