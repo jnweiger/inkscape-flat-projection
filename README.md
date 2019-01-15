@@ -1,4 +1,4 @@
-<img align="right" src="https://raw.githubusercontent.com/jnweiger/inkscape-flat-projection/master/doc/wheel32.png" width="300" />
+<img align="right" src="https://raw.githubusercontent.com/jnweiger/inkscape-flat-projection/master/doc/wheel32.png" width="200" />
 
 # inkscape-flat-projection
 
