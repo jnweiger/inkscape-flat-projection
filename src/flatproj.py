@@ -66,6 +66,7 @@ import json
 import inkex
 import gettext
 
+CMP_EPS = 0.000001
 
 # python2 compatibility. Inkscape runs us with python2!
 if sys.version_info.major < 3:
@@ -294,7 +295,7 @@ Option parser example:
           f = p[0]
           p = p[1:]
           closed = False
-          if abs(p[-1][0]-f[0]) < 0.000001 and abs(p[-1][1]-f[1]) < 0.000001:
+          if abs(p[-1][0]-f[0]) < CMP_EPS and abs(p[-1][1]-f[1]) < CMP_EPS:
             p = p[:-1]
             closed = True
           svgd = 'M%.6f,%.6f' % (f[0]*scale, f[1]*scale)
@@ -332,6 +333,7 @@ Option parser example:
         Rx = genRx(np.radians(19.4))
         R = np.matmul(Ry, Rx)
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
+        paths3d_2 = []                         # side: visible edges and faces
         for tupl in paths_tupls:
             (elem,paths) = tupl
             (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
@@ -341,7 +343,6 @@ Option parser example:
               path_id = 'pathx'+str(missing_id)+suf
               missing_id += 1
             paths3d_1 = []
-            paths3d_2 = []
             paths3d_3 = []
             extrude = self.is_extrude_color(svg, elem, self.options.apply_depth)
             for path in paths:
@@ -351,15 +352,34 @@ Option parser example:
               if extrude:
                 p3d_1 += [0, 0, depth]
                 paths3d_3.append(np.matmul(p3d_1, R))
-                paths3d_2.extend([[a,b] for a,b in zip(paths3d_1[-1], paths3d_3[-1])])
+                c = (0,0)       # need it after the loop
+                for i in range(0, len(paths3d_1[-1])-1):
+                  a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
+                  c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
+                  paths3d_2.append([a,b])       # visible edge
+                  # paths3d_2.append([a,b,d,c,a]) # filled face
+                if abs(c[0] - paths3d_1[-1][0][0]) > CMP_EPS or abs(c[1] - paths3d_1[-1][0][1]) > CMP_EPS:
+                  # do not append the last edge if it is a closed subpath.
+                  paths3d_2.append([c,d])
 
             # populate g1 with all colors
             inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
             if extrude:
-              # populate also g2 and g3, with selected colors only
-              inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths3d_2, 25.4/svg.dpi) })
+              # populate g3, with selected colors only
               inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
+        # while g1 an g3 resemble the subpath structure of the original object,
+        # g2 is different:
+        # it contains objects of 2 nodes (visible edges), or 5 nodes (filled faces without stroke).
+        # g1 and g3 are populated one subpath per time above. For g2 we accumulate all edge and face objects
+        # (one short path each) in paths3d_2.
+        # First we sort them with ascending z-coordinate.
+        #  * For both, 2 point and 5 point objects we compute the minimum z value as refernce. 5 point objects
+        #  * sort lower than 2 point objects, if their z-refence is equal.
+        # Second we append them to g2, where the 5 point objects use a modified style with invisible stroke.
+        for path in paths3d_2:
+          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': style, 'd': paths_to_svgd([path], 25.4/svg.dpi) })
+          missing_id += 1
 
 
 if __name__ == '__main__':
