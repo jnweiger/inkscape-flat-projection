@@ -10,6 +10,17 @@
 # with almost identical features, but different inmplementation details. The version used here is derived from
 # inkscape-paths2openscad.
 #
+# ---------------------------------------------------------------
+# 2019-01-12, jw, v0.1  initial draught. Idea and an inx. No code, but a beer.
+# 2019-01-12, jw, v0.2  option parser drafted. inx refined.
+# 2019-01-14, jw, v0.3  creating dummy objects. scale and placing is correct.
+# 2019-01-15, jw, v0.4  correct stacking of middle layer objects.
+#
+# TODO: * fix style massging. No regexp, but disassembly into a dict
+#       * adjustment of line-width according to transformation.
+#       * use options instead of the hardcoded matrix R.
+# ---------------------------------------------------------------
+#
 # Dimetric 7,42: Rotate(Y, 69.7 deg), Rotate(X, 19.4 deg)
 # Isometric:     Rotate(Y, 45 deg),   Rotate(X, degrees(atan(1/sqrt2)))    # 35.26439 deg
 #
@@ -1203,7 +1214,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.3'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.4'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -1356,7 +1367,7 @@ Option parser example:
               inkex.addNS('label','inkscape'): self.options.dest_layer,
               inkex.addNS('groupmode','inkscape'): 'layer',
               'id': self.options.dest_layer })
-        print('dest_layer', dest_layer, dest_layer.attrib, file=self.tty)
+        # print('dest_layer', dest_layer, dest_layer.attrib, file=self.tty)
 
         # Second traverse the document (or selected items), reducing
         # everything to line segments.  If working on a selection,
@@ -1389,7 +1400,7 @@ Option parser example:
             paths_tupls.append( (node, ll) )
         self.paths = None       # free some memory
 
-        print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
+        # print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
 
         depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
 
@@ -1465,6 +1476,7 @@ Option parser example:
             (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
             path_id = elem.attrib.get('id', '')+suf
             style = elem.attrib.get('style', '')
+            style_nostroke = re.sub('^((.*;)?)stroke:[^;]*((;.*)?)$', '\\1stroke:none\\3', style)       # replace stroke:#880000 with stroke:none
             if path_id == suf:
               path_id = 'pathx'+str(missing_id)+suf
               missing_id += 1
@@ -1482,11 +1494,11 @@ Option parser example:
                 for i in range(0, len(paths3d_1[-1])-1):
                   a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                   c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
-                  paths3d_2.append([a,b])       # visible edge
-                  # paths3d_2.append([a,b,d,c,a]) # filled face
+                  paths3d_2.append([[a,b], style])                # visible edge
+                  paths3d_2.append([[a,b,d,c,a], style_nostroke]) # filled face
                 if abs(c[0] - paths3d_1[-1][0][0]) > CMP_EPS or abs(c[1] - paths3d_1[-1][0][1]) > CMP_EPS:
                   # do not append the last edge if it is a closed subpath.
-                  paths3d_2.append([c,d])
+                  paths3d_2.append([[c,d], style])                # visible edge
 
             # populate g1 with all colors
             inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
@@ -1494,17 +1506,28 @@ Option parser example:
             if extrude:
               # populate g3, with selected colors only
               inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
-        # while g1 an g3 resemble the subpath structure of the original object, 
+        # while g1 an g3 resemble the subpath structure of the original object,
         # g2 is different:
         # it contains objects of 2 nodes (visible edges), or 5 nodes (filled faces without stroke).
-        # g1 and g3 are populated one subpath per time above. For g2 we accumulate all edge and face objects 
+        # g1 and g3 are populated one subpath per time above. For g2 we accumulate all edge and face objects
         # (one short path each) in paths3d_2.
+        #
         # First we sort them with ascending z-coordinate.
-        #  * For both, 2 point and 5 point objects we compute the minimum z value as refernce. 5 point objects 
-        #  * sort lower than 2 point objects, if their z-refence is equal.
-        # Second we append them to g2, where the 5 point objects use a modified style with invisible stroke.
+        def zcmp(a,b):
+          """ The tri-valued cmp() function is deprecated in python3. They apprently forgot about sort functions.
+              This dirty equivalent is from https://stackoverflow.com/questions/15556813/python-why-cmp-is-useful
+
+              For both, 2 point and 5 point objects we compute the minimum z value as refernce.
+              5 point objects sort lower than 2 point objects, if their z-refence is equal.
+          """
+          k1_a = min(map(lambda x: x[2], a[0]))        # find the minimum z value
+          k1_b = min(map(lambda x: x[2], b[0]))
+          return int(k1_a > k1_b) - int(k1_a < k1_b) or int(len(a[0]) > len(b[0])) - int(len(a[0]) < len(b[0]))
+        paths3d_2.sort(cmp=zcmp, reverse=True)
+
+        # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
         for path in paths3d_2:
-          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': style, 'd': paths_to_svgd([path], 25.4/svg.dpi) })
+          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path[1], 'd': paths_to_svgd([path[0]], 25.4/svg.dpi) })
           missing_id += 1
 
 
