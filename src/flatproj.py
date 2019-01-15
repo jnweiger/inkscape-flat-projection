@@ -10,7 +10,7 @@
 # with almost identical features, but different inmplementation details. The version used here is derived from
 # inkscape-paths2openscad.
 #
-# Dimetric 7,42: Rotate(Y, 69,7 deg), Rotate(X, 19,4 deg)
+# Dimetric 7,42: Rotate(Y, 69.7 deg), Rotate(X, 19.4 deg)
 # Isometric:     Rotate(Y, 45 deg),   Rotate(X, degrees(atan(1/sqrt2)))    # 35.26439 deg
 #
 
@@ -25,6 +25,22 @@
 # np.matmul( [[0,0,-1], [1,0,0], [0,-1,0]], R )
 #  -> same as above :-)
 #
+# Extend an array of xy vectors array into xyz vectors
+# a = np.random.rand(5,2)
+#  array([[ 0.34130538,  0.17759346],
+#         [ 0.12913702,  0.82202647],
+#         [ 0.98076566,  0.28258448],
+#         [ 0.53837714,  0.3364164 ],
+#         [ 0.97548482,  0.26674535]])
+# b = np.zeros( (a.shape[0], 3) )
+# b[:,:-1] = a
+# b += [0,0,33]
+#  array([[  0.34130538,   0.17759346,  33.        ],
+#         [  0.12913702,   0.82202647,  33.        ],
+#         [  0.98076566,   0.28258448,  33.        ],
+#         [  0.53837714,   0.3364164 ,  33.        ],
+#         [  0.97548482,   0.26674535,  33.        ]])
+
 
 # python2 compatibility:
 from __future__ import print_function
@@ -248,7 +264,7 @@ Option parser example:
 
         print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
 
-        depth = self.options.depth * 25.4 / svg.dpi         # convert from mm to svg units
+        depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
 
         dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
         dest_g = {}      # map from dest_id to (group element, suffix)
@@ -296,6 +312,7 @@ Option parser example:
           return d[:-1]
 
         # shapes from http://mathworld.wolfram.com/RotationMatrix.html
+        # (this disagrees with https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations, though)
         def genRx(theta):
           "A rotation matrix about the X axis. Example: Rx = genRx(np.radians(30))"
           c, s = np.cos(theta), np.sin(theta)
@@ -311,24 +328,38 @@ Option parser example:
           c, s = np.cos(theta), np.sin(theta)
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
+        Ry = genRy(np.radians(69.7))
+        Rx = genRx(np.radians(19.4))
+        R = np.matmul(Ry, Rx)
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         for tupl in paths_tupls:
             (elem,paths) = tupl
+            (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
+            path_id = elem.attrib.get('id', '')+suf
+            style = elem.attrib.get('style', '')
+            if path_id == suf:
+              path_id = 'pathx'+str(missing_id)+suf
+              missing_id += 1
+            paths3d_1 = []
+            paths3d_2 = []
+            paths3d_3 = []
+            extrude = self.is_extrude_color(svg, elem, self.options.apply_depth)
             for path in paths:
-                (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
-                path_id = elem.attrib.get('id', '')+suf
-                style = elem.attrib.get('style', '')
-                if path_id == suf:
-                  path_id = 'pathx'+str(missing_id)+suf
-                  missing_id += 1
+              p3d_1 = np.zeros( (len(path), 3) )
+              p3d_1[:,:-1] = path
+              paths3d_1.append(np.matmul(p3d_1, R))
+              if extrude:
+                p3d_1 += [0, 0, depth]
+                paths3d_3.append(np.matmul(p3d_1, R))
+                paths3d_2.extend([[a,b] for a,b in zip(paths3d_1[-1], paths3d_3[-1])])
 
-                # populate g1 with all colors
-                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
+            # populate g1 with all colors
+            inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
-                if self.is_extrude_color(svg, elem, self.options.apply_depth):
-                  # populate also g2 and g3, with selected colors only
-                  inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
-                  inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths, 25.4/svg.dpi) })
+            if extrude:
+              # populate also g2 and g3, with selected colors only
+              inkex.etree.SubElement(g2, 'path', { 'id': path_id+'2', 'style': style, 'd': paths_to_svgd(paths3d_2, 25.4/svg.dpi) })
+              inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
 
 
 if __name__ == '__main__':
