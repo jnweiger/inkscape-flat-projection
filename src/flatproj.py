@@ -10,14 +10,27 @@
 # with almost identical features, but different inmplementation details. The version used here is derived from
 # inkscape-paths2openscad.
 #
-# Dimetric 7,42: Rotate(Y, 69,7°), Rotate(X, 19,4°)
-# Isometric:     Rotate(Y, 45°),   Rotate(X, degrees(atan(1/sqrt2)))    # 35.26439°
+# Dimetric 7,42: Rotate(Y, 69,7 deg), Rotate(X, 19,4 deg)
+# Isometric:     Rotate(Y, 45 deg),   Rotate(X, degrees(atan(1/sqrt2)))    # 35.26439 deg
 #
+
+# Isometric transformation example:
+# Ry = genRy(np.radians(45))
+# Rx = genRx(np.radians(35.26439))
+# np.matmul( np.matmul( [[0,0,-1], [1,0,0], [0,-1,0]], Ry ), Rx)
+#   array([[-0.70710678,  0.40824829, -0.57735027],
+#          [ 0.70710678,  0.40824829, -0.57735027],
+#          [ 0.        , -0.81649658, -0.57735027]])
+# R = np.matmul(Ry, Rx)
+# np.matmul( [[0,0,-1], [1,0,0], [0,-1,0]], R )
+#  -> same as above :-)
 #
+
 # python2 compatibility:
 from __future__ import print_function
 
 import sys, time
+import numpy as np            # Tav's perspective extension also uses numpy.
 
 sys_platform = sys.platform.lower()
 if sys_platform.startswith('win'):
@@ -44,7 +57,7 @@ if sys.version_info.major < 3:
                 return "".join(map(chr, tupl))
 
 
-class Projection3D(inkex.Effect):
+class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
     __version__ = '0.3'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
@@ -65,7 +78,7 @@ Option parser example:
         except:
             from os import devnull
             self.tty = open(devnull, 'w')  # '/dev/null' for POSIX, 'nul' for Windows.
-        print("Projection3D " + self.__version__, file=self.tty)
+        print("FlatProjection " + self.__version__, file=self.tty)
 
         self.OptionParser.add_option(
             "--tab",  # NOTE: value is not used.
@@ -282,6 +295,22 @@ Option parser example:
             d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
+        # shapes from http://mathworld.wolfram.com/RotationMatrix.html
+        def genRx(theta):
+          "A rotation matrix about the X axis. Example: Rx = genRx(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((1, 0, 0), (0, c, s), (0, -s, c)) )
+
+        def genRy(theta):
+          "A rotation matrix about the Y axis. Example: Ry = genRy(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((c, 0, -s), (0, 1, 0), (s, 0, c)) )
+
+        def genRz(theta):
+          "A rotation matrix about the Z axis. Example: Rz = genRz(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
+
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         for tupl in paths_tupls:
             (elem,paths) = tupl
@@ -303,5 +332,5 @@ Option parser example:
 
 
 if __name__ == '__main__':
-    e = Projection3D()
+    e = FlatProjection()
     e.affect()

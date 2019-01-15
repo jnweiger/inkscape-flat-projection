@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 #
-# proj.py -- apply a transformation matrix to an svg object
+# flatproj.py -- apply a transformation matrix to an svg object
 #
 # (C) 2019 Juergen Weigert <juergen@fabmail.org>
 # Distribute under GPLv2 or ask.
@@ -10,10 +10,27 @@
 # with almost identical features, but different inmplementation details. The version used here is derived from
 # inkscape-paths2openscad.
 #
+# Dimetric 7,42: Rotate(Y, 69,7 deg), Rotate(X, 19,4 deg)
+# Isometric:     Rotate(Y, 45 deg),   Rotate(X, degrees(atan(1/sqrt2)))    # 35.26439 deg
+#
+
+# Isometric transformation example:
+# Ry = genRy(np.radians(45))
+# Rx = genRx(np.radians(35.26439))
+# np.matmul( np.matmul( [[0,0,-1], [1,0,0], [0,-1,0]], Ry ), Rx)
+#   array([[-0.70710678,  0.40824829, -0.57735027],
+#          [ 0.70710678,  0.40824829, -0.57735027],
+#          [ 0.        , -0.81649658, -0.57735027]])
+# R = np.matmul(Ry, Rx)
+# np.matmul( [[0,0,-1], [1,0,0], [0,-1,0]], R )
+#  -> same as above :-)
+#
+
 # python2 compatibility:
 from __future__ import print_function
 
 import sys, time
+import numpy as np            # Tav's perspective extension also uses numpy.
 
 sys_platform = sys.platform.lower()
 if sys_platform.startswith('win'):
@@ -1166,16 +1183,16 @@ if sys.version_info.major < 3:
                 return "".join(map(chr, tupl))
 
 
-class Projection3D(inkex.Effect):
+class FlatProjection(inkex.Effect):
 
-    # CAUTION: Keep in sync with 3d-projection.inx and 3d-projection_de.inx
+    # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
     __version__ = '0.3'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
 Option parser example:
 
-'3d-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
+'flat-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
 
         """
         # above example generated with inkex.errormsg(repr(sys.argv))
@@ -1187,7 +1204,7 @@ Option parser example:
         except:
             from os import devnull
             self.tty = open(devnull, 'w')  # '/dev/null' for POSIX, 'nul' for Windows.
-        print("Projection3D " + self.__version__, file=self.tty)
+        print("FlatProjection " + self.__version__, file=self.tty)
 
         self.OptionParser.add_option(
             "--tab",  # NOTE: value is not used.
@@ -1229,17 +1246,17 @@ Option parser example:
 
 
         self.OptionParser.add_option(
-            '--trimetric_projection_x', dest='trimetric_projection_x', type='float', default=float(7.0), action='store',
-            help='apparent angle of the x-axis in free trimetric projection mode. Measured from the negative world x-axis. Used when projection_type=trimetric_projection')
+            '--trimetric_projection_y', dest='trimetric_projection_y', type='float', default=float(19.4), action='store',
+            help='Manally define a projection, by first(!) rotating about the y-axis. Used when projection_type=trimetric_projection')
 
         self.OptionParser.add_option(
-            '--trimetric_projection_y', dest='trimetric_projection_y', type='float', default=float(42.0), action='store',
-            help='apparent angle of the y-axis in free trimetric projection mode. Measured from the positive world x-axis. Used when projection_type=trimetric_projection')
+            '--trimetric_projection_x', dest='trimetric_projection_x', type='float', default=float(69.7), action='store',
+            help='Manally define a projection, by second(!) rotating about the x-axis. Used when projection_type=trimetric_projection')
 
 
         self.OptionParser.add_option(
             "--depth", action="store", type="float", dest="depth", default=float(10.0),
-            help="Extrusion length along the Z-axis. Applied to some, all, or none paths of the svg object, to convert it to a 3d object.")
+            help="Extrusion length along the Z-axis. Applied to some, all, or none paths of the svg object, to convert it to a 3D object.")
 
         self.OptionParser.add_option(
             "--apply_depth", action="store", type="string", dest="apply_depth", default="red",
@@ -1404,6 +1421,22 @@ Option parser example:
             d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
+        # shapes from http://mathworld.wolfram.com/RotationMatrix.html
+        def genRx(theta):
+          "A rotation matrix about the X axis. Example: Rx = genRx(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((1, 0, 0), (0, c, s), (0, -s, c)) )
+
+        def genRy(theta):
+          "A rotation matrix about the Y axis. Example: Ry = genRy(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((c, 0, -s), (0, 1, 0), (s, 0, c)) )
+
+        def genRz(theta):
+          "A rotation matrix about the Z axis. Example: Rz = genRz(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
+
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         for tupl in paths_tupls:
             (elem,paths) = tupl
@@ -1425,5 +1458,5 @@ Option parser example:
 
 
 if __name__ == '__main__':
-    e = Projection3D()
+    e = FlatProjection()
     e.affect()
