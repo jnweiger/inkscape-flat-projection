@@ -38,17 +38,18 @@
           <param name="standard_projection" type="enum" gui-text="">
             <item value="7,42">Dimetric right: 7°, 42°</item>
             <item value="42,7">Dimetric left: 42°, 7°</item>
-            <item value="30,30">Isometric: 30°, 30°</item>
+            <item value="30,30">Isometric right: 30°, 30°</item>
+            <item value="30,30l">Isometric left: 30°, 30°</item>
            </param>
            <param name="spacer" type="description"> </param>
            <param name="standard_projection_autoscale" type="boolean" gui-text="preserve scale 1:1">true</param>
            <param name="standard_projection_autoscale_help" type="description">Projecting a 3D object onto a plane usually shortens apparent lengths. With dimetric and isometric projections this can be compensated to preserve scale. (The z-axis in dimetric projection has scale 0.5)</param>
         </page>
         <page name='trimetric_projection' gui-text='Free Trimetric'>
-          <param name="trimetric_projection_y" type="float" min="-180" max="180" appearance="full" gui-text="Rotate Y [°]:  ">69.7</param>
+          <param name="trimetric_projection_y" type="float" min="-180" max="180" appearance="full" gui-text="Rotate Y [°]:  ">22.1</param>
           <param name="trimetric_projection_x" type="float" min="-180" max="180" appearance="full" gui-text="Rotate X [°]:  ">19.4</param>
            <param name="trimetric_projection_help" type="description">We first apply Y-axis, then X-axis rotation. 
-Exmples: For Dimetric use y=69.7°; x=19.4° -- for Isometric use y=45°; x=35.26439°.</param>
+Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.26439°.</param>
         </page>
       </param>
 
@@ -68,6 +69,9 @@ Exmples: For Dimetric use y=69.7°; x=19.4° -- for Isometric use y=45°; x=35.2
             <item value="any">any stroke color</item>
             <item value="none">nothing</item>
       </param>
+      <param name="spacer" type="description"> </param>
+      <param name="stroke_width" type="string" gui-text="Override stroke-width [mm]">0.1</param>
+      <param name="stroke_width_help" type="description">Enforce a uniform stroke-width on generated objects. Enter '=' to use the stroke-widths as computed by inksvg.py -- (sometimes wrong!)</param>
       <param name="spacer" type="description"> </param>
 
       <param name="dest_layer" gui-hidden="false" type="string" gui-text="Destination layer name">3d-proj</param>
@@ -89,7 +93,7 @@ Exmples: For Dimetric use y=69.7°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <!-- Keep in sync with src/proj.py line 46 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.4</param>
+      <param name="about_version" type="description">Version 0.5</param>
     </page>
   </param>
 

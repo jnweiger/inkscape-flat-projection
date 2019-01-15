@@ -15,6 +15,7 @@
 # 2019-01-12, jw, v0.2  option parser drafted. inx refined.
 # 2019-01-14, jw, v0.3  creating dummy objects. scale and placing is correct.
 # 2019-01-15, jw, v0.4  correct stacking of middle layer objects.
+# 2019-01-16, jw, v0.5  standard and free projections done. enforce stroke-width option added.
 #
 # TODO: * fix style massging. No regexp, but disassembly into a dict
 #       * adjustment of line-width according to transformation.
@@ -88,13 +89,13 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.4'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.5'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
 Option parser example:
 
-'flat-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type=standard_projection', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
+'flat-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type="standard_projection"', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--stroke_width=0.1', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
 
         """
         # above example generated with inkex.errormsg(repr(sys.argv))
@@ -106,7 +107,7 @@ Option parser example:
         except:
             from os import devnull
             self.tty = open(devnull, 'w')  # '/dev/null' for POSIX, 'nul' for Windows.
-        print("FlatProjection " + self.__version__, file=self.tty)
+        # print("FlatProjection " + self.__version__ + " inksvg "+InkSvg.__version__, file=self.tty)
 
         self.OptionParser.add_option(
             "--tab",  # NOTE: value is not used.
@@ -140,7 +141,7 @@ Option parser example:
 
         self.OptionParser.add_option(
             "--standard_projection", action="store", type="string", dest="standard_projection", default="7,42",
-            help="One of the DIN ISO 128-30 axonometric projections: '7,42' (dimetric left), '42,7' (dimetric right), '30,30' (isometric). Used when projection_type=standard_projection.")
+            help="One of the DIN ISO 128-30 axonometric projections: '7,42' (dimetric left), '42,7' (dimetric right), '30,30' (isometric right) and '30,30l' (isometric left). Used when projection_type=standard_projection.")
 
         self.OptionParser.add_option(
             "--standard_projection_autoscale", action="store", type="inkbool", dest="standard_projection_autoscale", default=True,
@@ -163,6 +164,10 @@ Option parser example:
         self.OptionParser.add_option(
             "--apply_depth", action="store", type="string", dest="apply_depth", default="red",
             help="Stroke color where depth is applied. One of red, red_black, green, green_blue, not_red, not_red_black, not_green, not_green_blue, any, none")
+
+        self.OptionParser.add_option(
+            "--stroke_width", action="store", type="string", dest="stroke_width", default='0.1',
+            help="Enforce a uniform stroke-width on generated objects. Enter '=' to use the stroke-widths as computed by inksvg.py -- (sometimes wrong!)")
 
         self.OptionParser.add_option(
             '--dest_layer', dest='dest_layer', type='string', default='3d-proj', action='store',
@@ -224,7 +229,8 @@ Option parser example:
         svg.handleViewBox()
 
         if self.options.version:
-            print("Version "+self.__version__)
+            # FIXME: does not work. Error: Unable to open object member file: --version
+            print("Version "+self.__version__+" (inksvg "+svg.__version__+")")
             sys.exit(0)
 
         ## First find or create find the destination layer
@@ -267,11 +273,10 @@ Option parser example:
         ##
         paths_tupls = []
         for tup in svg.paths:
-            node = tup[0]
             ll = []
             for e in tup[1]:
                 ll.append(e[0])
-            paths_tupls.append( (node, ll) )
+            paths_tupls.append( (tup[0], ll, tup[2]) )
         self.paths = None       # free some memory
 
         # print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
@@ -323,6 +328,26 @@ Option parser example:
             d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
+        # from fablabnbg/inkscape-paths2openscad
+        def getPathStyle(node):
+          style = node.get('style', '')
+          ret = {}
+          # fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:10;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1
+          for elem in style.split(';'):
+            if len(elem):
+                try:
+                    (key, val) = elem.strip().split(':')
+                except:
+                    print >> sys.stderr, "unparsable element '{1}' in style '{0}'".format(elem, style)
+                ret[key] = val
+          return ret
+
+        def fmtPathStyle(sty):
+          "Takes a dict generated by getPathStyle() and formats a string that can be fed to getPathStyle()."
+          s = ''
+          for key in sty: s += str(key)+':'+str(sty[key])+';'
+          return s.rstrip(';')
+
         # shapes from http://mathworld.wolfram.com/RotationMatrix.html
         # (this disagrees with https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations, though)
         def genRx(theta):
@@ -340,17 +365,49 @@ Option parser example:
           c, s = np.cos(theta), np.sin(theta)
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
-        Ry = genRy(np.radians(69.7))
+        inkex.errormsg("projection_type="+self.options.projection_type)
+        # default: dimetric 7,42
+        Ry = genRy(np.radians(90-69.7))
         Rx = genRx(np.radians(19.4))
+        # Argh. Quotes are included here!
+        if self.options.projection_type.strip(" '\"") == 'standard_projection':
+            inkex.errormsg("std proj")
+            if   self.options.standard_projection in ('7,42', '7,41'):
+                pass    # default above.
+            elif self.options.standard_projection in ('42,7', '41,7'):
+                Ry = genRy(np.radians(69.7-90))
+                Rx = genRx(np.radians(19.4))
+            elif self.options.standard_projection == '30,30':
+                Ry = genRy(np.radians(45.0))
+                Rx = genRx(np.radians(35.26439))
+            elif self.options.standard_projection == '30,30l':
+                Ry = genRy(np.radians(-45.0))
+                Rx = genRx(np.radians(35.26439))
+            else:
+                inkex.errormsg("unknown standard_projection="+self.options.standard_projection+" -- use one of '7,42'; '42,7'; '30,30' or '30,30l'")
+                sys.exit(1)
+        else:
+            inkex.errormsg("free proj")
+            Ry = genRy(np.radians(float(self.options.trimetric_projection_y)))
+            Rx = genRx(np.radians(float(self.options.trimetric_projection_x)))
+
         R = np.matmul(Ry, Rx)
+
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         paths3d_2 = []                         # side: visible edges and faces
         for tupl in paths_tupls:
-            (elem,paths) = tupl
+            (elem, paths, transform) = tupl
             (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
             path_id = elem.attrib.get('id', '')+suf
-            style = elem.attrib.get('style', '')
-            style_nostroke = re.sub('^((.*;)?)stroke:[^;]*((;.*)?)$', '\\1stroke:none\\3', style)       # replace stroke:#880000 with stroke:none
+            style_d = getPathStyle(elem)
+            # print("stroke-width", style_d['stroke-width'], transform, file=self.tty)
+            if self.options.stroke_width.strip(' =') != '':
+                style_d["stroke-width"] = str(float(self.options.stroke_width.strip(' =')))
+            style_d_nostroke = style_d.copy()
+            style_d_nostroke['stroke'] = 'none'
+            style = fmtPathStyle(style_d)
+            style_nostroke = fmtPathStyle(style_d_nostroke)
+
             if path_id == suf:
               path_id = 'pathx'+str(missing_id)+suf
               missing_id += 1

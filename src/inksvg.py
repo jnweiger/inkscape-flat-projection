@@ -35,6 +35,7 @@
 # 2018-03-21 jw, v1.7d Added handleViewBox() to load().
 #                      Added traverse().
 # 2019-01-12 jw, v1.7e debug output to self.tty
+# 2019-01-15 jw, v1.7f tunnel transform as third item into paths tuple. needed for style stroke-width adjustment.
 
 import gettext
 import re
@@ -218,7 +219,7 @@ class InkSvg():
     #    print(svg.paths)       # all coordinates in mm
 
     """
-    __version__ = "1.7e"
+    __version__ = "1.7f"
     DEFAULT_WIDTH = 100
     DEFAULT_HEIGHT = 100
 
@@ -285,6 +286,7 @@ class InkSvg():
         """
         Finds style declarations by .class, #id or by tag.class syntax,
         and of course by a direct style='...' attribute.
+        # FIXME: stroke-width depends on the current transformation matrix scale.
         """
         sheet = ''
         selectors = []
@@ -314,6 +316,7 @@ class InkSvg():
             combined_style = self.getNodeStyle(parent)
         style = self.getNodeStyleOne(node)
         for s in style:
+            # FIXME: stroke-width depends on the current transformation matrix scale.
             combined_style[s] = style[s]        # overwrite or add
         return combined_style
 
@@ -823,7 +826,7 @@ class InkSvg():
             subpath_list.append([subpath_vertices, [sp_xmin, sp_xmax, sp_ymin, sp_ymax]])
 
         if len(subpath_list) > 0:
-            self.paths.append( (node, subpath_list) )
+            self.paths.append( (node, subpath_list, transform) )
 
 
     def recursivelyTraverseSvg(self, aNodeList, matCurrent=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
