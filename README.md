@@ -10,3 +10,10 @@ This implements parallel projection.
 (For perspective projection see Tav's perspective extension.)
 
 ![first success](doc/standard-projections.png)
+
+<p><br>
+  <p><br>
+
+To compose arbitrary scenes, objects can be rotated before perspective is applied:
+
+![first success](doc/ring-of-houses.png)
