@@ -1368,10 +1368,11 @@ Option parser example:
                'sodipodi': 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd' }
         dest_layer = None
         for i in self.current_layer.findall("../*[@inkscape:groupmode='layer']", ns):        # all potential layers
-            if self.options.dest_layer in (i.attrib.get('id', ''), i.attrib.get('label', ''), i.attrib.get('name', '')):
+            print('Existing layer', i, i.attrib, file=self.tty)
+            if self.options.dest_layer in (i.attrib.get('id', ''), i.attrib.get(inkex.addNS('label', 'inkscape'), ''), i.attrib.get('label', ''), i.attrib.get('name', '')):
                 dest_layer = i
         if dest_layer is None:
-            # print('Creating dest_layer', self.options.dest_layer, file=self.tty)
+            print('Creating dest_layer', self.options.dest_layer, file=self.tty)
             dest_layer = inkex.etree.SubElement(self.current_layer.find('..'), 'g', {
               inkex.addNS('label','inkscape'): self.options.dest_layer,
               inkex.addNS('groupmode','inkscape'): 'layer',
@@ -1495,7 +1496,7 @@ Option parser example:
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
         # user rotation
-        uR = genRy(np.radians(120.))
+        uR = genRy(np.radians(0.))
 
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))
