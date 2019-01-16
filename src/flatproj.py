@@ -365,13 +365,14 @@ Option parser example:
           c, s = np.cos(theta), np.sin(theta)
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
-        inkex.errormsg("projection_type="+self.options.projection_type)
+        # user rotation
+        uR = genRy(np.radians(0.))
+
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))
         Rx = genRx(np.radians(19.4))
         # Argh. Quotes are included here!
         if self.options.projection_type.strip(" '\"") == 'standard_projection':
-            inkex.errormsg("std proj")
             if   self.options.standard_projection in ('7,42', '7,41'):
                 pass    # default above.
             elif self.options.standard_projection in ('42,7', '41,7'):
@@ -391,7 +392,7 @@ Option parser example:
             Ry = genRy(np.radians(float(self.options.trimetric_projection_y)))
             Rx = genRx(np.radians(float(self.options.trimetric_projection_x)))
 
-        R = np.matmul(Ry, Rx)
+        R = np.matmul(uR, np.matmul(Ry, Rx))
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         paths3d_2 = []                         # side: visible edges and faces
