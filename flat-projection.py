@@ -1496,7 +1496,30 @@ Option parser example:
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
         # user rotation
-        uR = genRy(np.radians(0.))
+        uR = genRx(np.radians(0.0))
+        if self.options.rotation_type.strip(" '\"") == 'standard_rotation':
+          if   self.options.standard_rotation == 'x+90':
+            uR = genRx(np.radians(90.))
+          elif self.options.standard_rotation == 'x-90':
+            uR = genRx(np.radians(-90.))
+          elif self.options.standard_rotation == 'y+90':
+            uR = genRy(np.radians(90.))
+          elif self.options.standard_rotation == 'y-90':
+            uR = genRy(np.radians(-90.))
+          elif self.options.standard_rotation == 'z+90':
+            uR = genRz(np.radians(90.))
+          elif self.options.standard_rotation == 'z-90':
+            uR = genRz(np.radians(-90.))
+          elif self.options.standard_rotation == 'none':
+            pass
+          else:
+            inkex.errormsg("unknown standard_rotation="+self.options.standard_rotation+" -- use one of 'x+90'; 'x-90'; 'y+90', 'y-90', 'z+90', or 'z-90'")
+            sys.exit(1)
+        else:
+          Rx = genRx(np.radians(float(self.options.manual_rotation_x)))
+          Ry = genRx(np.radians(float(self.options.manual_rotation_y)))
+          Rz = genRx(np.radians(float(self.options.manual_rotation_z)))
+          uR = np.matmul(Rx, np.matmul(Ry, Rz))
 
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))
@@ -1515,7 +1538,7 @@ Option parser example:
                 Ry = genRy(np.radians(-45.0))
                 Rx = genRx(np.radians(35.26439))
             else:
-                inkex.errormsg("unknown standard_projection="+self.options.standard_projection+" -- use one of '7,42'; '42,7'; '30,30' or '30,30l'")
+                inkex.errormsg("unknown standard_projection="+self.options.standard_projection+" -- use one of '7,42'; '42,7'; '30,30', or '30,30l'")
                 sys.exit(1)
         else:
             inkex.errormsg("free proj")
@@ -1562,12 +1585,16 @@ Option parser example:
                   # do not append the last edge if it is a closed subpath.
                   paths3d_2.append([[c,d], style])                # visible edge
 
+            if extrude:
+              # check if we see front or back
+              if paths3d_1[0][0][2] > paths3d_3[0][0][2]:       # Compare any Z-coordinate.
+                g3, g1 = g1, g3
+              # populate g3, with selected colors only
+              inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
+
             # populate g1 with all colors
             inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
-            if extrude:
-              # populate g3, with selected colors only
-              inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
         # while g1 an g3 resemble the subpath structure of the original object,
         # g2 is different:
         # it contains objects of 2 nodes (visible edges), or 5 nodes (filled faces without stroke).
