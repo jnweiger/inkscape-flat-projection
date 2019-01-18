@@ -124,7 +124,7 @@ Option parser example:
 
         self.OptionParser.add_option(
             "--standard_rotation", action="store", type="string", dest="standard_rotation", default="None",
-            help="one of None, x-90, x+90, y-90, y+90, z-90, z+90. Used when rotation_type=standard_rotation")
+            help="one of None, x-90, x+90, y-90, y+90, y+180, z-90, z+90. Used when rotation_type=standard_rotation")
 
 
         self.OptionParser.add_option(
@@ -375,6 +375,8 @@ Option parser example:
             uR = genRx(np.radians(-90.))
           elif self.options.standard_rotation == 'y+90':
             uR = genRy(np.radians(90.))
+          elif self.options.standard_rotation == 'y+180':
+            uR = genRy(np.radians(180.))
           elif self.options.standard_rotation == 'y-90':
             uR = genRy(np.radians(-90.))
           elif self.options.standard_rotation == 'z+90':
@@ -384,7 +386,7 @@ Option parser example:
           elif self.options.standard_rotation == 'none':
             pass
           else:
-            inkex.errormsg("unknown standard_rotation="+self.options.standard_rotation+" -- use one of 'x+90'; 'x-90'; 'y+90', 'y-90', 'z+90', or 'z-90'")
+            inkex.errormsg("unknown standard_rotation="+self.options.standard_rotation+" -- use one of x+90, x-90, y+90, y-90, y+180, z+90, or z-90")
             sys.exit(1)
         else:
           Rx = genRx(np.radians(float(self.options.manual_rotation_x)))
@@ -419,10 +421,18 @@ Option parser example:
         R = np.matmul(uR, np.matmul(Ry, Rx))
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
+        v = np.matmul([[0,0,depth]], R)         # test in which way depth points
+        if v[0][2] < 0.0:
+            backview = True
+        else:
+            backview = False
+
         paths3d_2 = []                         # side: visible edges and faces
         for tupl in paths_tupls:
             (elem, paths, transform) = tupl
             (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
+            if backview:
+                g1,g3 = g3,g1
             path_id = elem.attrib.get('id', '')+suf
             style_d = getPathStyle(elem)
             # print("stroke-width", style_d['stroke-width'], transform, file=self.tty)
@@ -457,13 +467,9 @@ Option parser example:
                   paths3d_2.append([[c,d], style])                # visible edge
 
             if extrude:
-              # check if we see front or back
-              if paths3d_1[0][0][2] > paths3d_3[0][0][2]:       # Compare any Z-coordinate.
-                g3, g1 = g1, g3
-              # populate g3, with selected colors only
-              inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
-
-            # populate g1 with all colors
+                # populate back face with selected colors only
+                inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
+            # populate front face with all colors
             inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
         # while g1 an g3 resemble the subpath structure of the original object,

@@ -13,13 +13,12 @@
       <param name="rotation_type" type="notebook">
         <page name='standard_rotation' gui-text='Standard Rotation'>
           <param name="standard_rotation" type="enum" gui-text="">
-            <item value="none">None</item>
-            <item value="x-90">X-Axis: -90°</item>
-            <item value="x+90">X-Axis: +90°</item>
-            <item value="y-90">Y-Axis: -90°</item>
-            <item value="y+90">Y-Axis: +90°</item>
-            <item value="z-90">Z-Axis: -90°</item>
-            <item value="z+90">Z-Axis: +90°</item>
+            <item value="none">None		(front)</item>
+            <item value="x-90">X-Axis: -90°	(top)</item>
+            <item value="x+90">X-Axis: +90°	(bottom)</item>
+            <item value="y-90">Y-Axis: -90°	(right)</item>
+            <item value="y+90">Y-Axis: +90°	(left)</item>
+            <item value="y+180">Y-Axis: +180°	(back)</item>
            </param>
         </page>
         <page name='manual_rotation' gui-text='Free Rotation'>
@@ -36,8 +35,8 @@
       <param name="projection_type" type="notebook">
         <page name='standard_projection' gui-text='ISO Standard'>
           <param name="standard_projection" type="enum" gui-text="">
-            <item value="7,42">Dimetric right: 7°, 42°</item>
             <item value="42,7">Dimetric left: 42°, 7°</item>
+            <item value="7,42">Dimetric right: 7°, 42°</item>
             <item value="30,30">Isometric right: 30°, 30°</item>
             <item value="30,30l">Isometric left: 30°, 30°</item>
            </param>
