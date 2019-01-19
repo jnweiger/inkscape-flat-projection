@@ -16,6 +16,7 @@
 # 2019-01-14, jw, v0.3  creating dummy objects. scale and placing is correct.
 # 2019-01-15, jw, v0.4  correct stacking of middle layer objects.
 # 2019-01-16, jw, v0.5  standard and free projections done. enforce stroke-width option added.
+# 2019-01-19, jw, v0.6  slightly improved zcmp(). Not yet robust.
 #
 # TODO: * fix style massging. No regexp, but disassembly into a dict
 #       * adjustment of line-width according to transformation.
@@ -89,7 +90,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.5'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.6'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -287,6 +288,12 @@ Option parser example:
         dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
         dest_g = {}      # map from dest_id to (group element, suffix)
         def find_dest_g(node, dest_layer):
+            """ We prepare a set of 4 groups to hold the projection of an object.
+                g1 to hold the front face, g3 to hold the back face, and g2 to hold all the side walls.
+                g groups g1, g2, g3
+                For each selected objects a separate set of these 4 groups is created.
+                xml-nodes belonging to the same selected object receive the same set.
+            """
             src_id = self.find_selected_id(node)
             if src_id in dest_ids:
               return dest_g[dest_ids[src_id]]
@@ -306,13 +313,19 @@ Option parser example:
             dest_g[id] = ( g1, g2, g3, '_'+str(n)+'_' )
             return dest_g[id]
 
+        def cmp_f(a, b):
+          " comparing floating point is hideous. "
+          d = a - b
+          if d > CMP_EPS: return 1
+          if d < -CMP_EPS: return -1
+          return 0
 
         def points_to_svgd(p, scale=1.0):
           " convert list of points into a closed SVG path list"
           f = p[0]
           p = p[1:]
           closed = False
-          if abs(p[-1][0]-f[0]) < CMP_EPS and abs(p[-1][1]-f[1]) < CMP_EPS:
+          if cmp_f(p[-1][0], f[0]) == 0 and cmp_f(p[-1][1], f[1]) == 0:
             p = p[:-1]
             closed = True
           svgd = 'M%.6f,%.6f' % (f[0]*scale, f[1]*scale)
@@ -462,7 +475,7 @@ Option parser example:
                   c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
                   paths3d_2.append([[a,b], style])                # visible edge
                   paths3d_2.append([[a,b,d,c,a], style_nostroke]) # filled face
-                if abs(c[0] - paths3d_1[-1][0][0]) > CMP_EPS or abs(c[1] - paths3d_1[-1][0][1]) > CMP_EPS:
+                if cmp_f(c[0], paths3d_1[-1][0][0]) != 0 or cmp_f(c[1], paths3d_1[-1][0][1]) != 0:
                   # do not append the last edge if it is a closed subpath.
                   paths3d_2.append([[c,d], style])                # visible edge
 
@@ -483,12 +496,35 @@ Option parser example:
           """ The tri-valued cmp() function is deprecated in python3. They apprently forgot about sort functions.
               This dirty equivalent is from https://stackoverflow.com/questions/15556813/python-why-cmp-is-useful
 
+              We see here edges (2 points) and faces (5 points).
+              Edges and faces may touch.  If so, we compare z coordinates at the touch point.
+              Otherwise we compare at zmin. FIXME: this is better than comparing zmax, but may not always work correctly.
               For both, 2 point and 5 point objects we compute the minimum z value as refernce.
               5 point objects sort lower than 2 point objects, if their z-refence is equal.
           """
-          k1_a = min(map(lambda x: x[2], a[0]))        # find the minimum z value
+          if len(a[0]) == 2 and len(b[0]) == 5:
+            " find touch point in b "
+            a00 = a[0][0]
+            # print("edge a ? face b", a00, file=self.tty)
+            for p in b[0]:
+              # print("  cmp_f", p, cmp_f(a00[0], p[0]), cmp_f(a00[1], p[1]), cmp_f(a00[2], p[2]), file=self.tty)
+              if cmp_f(a00[0], p[0]) == 0 and cmp_f(a00[1], p[1]) == 0 and cmp_f(a00[2], p[2]) == 0:
+                # print("edge a touches face b", file=self.tty)
+                return -1       # edge before face
+
+          if len(a[0]) == 5 and len(b[0]) == 2:
+            " find touch point in a "
+            b00 = b[0][0]
+            # print("edge b ? face a", b00, file=self.tty)
+            for p in a[0]:
+              # print("  cmp_f", p, cmp_f(b00[0], p[0]), cmp_f(b00[1], p[1]), cmp_f(b00[2], p[2]), file=self.tty)
+              if cmp_f(b00[0], p[0]) == 0 and cmp_f(b00[1], p[1]) == 0 and cmp_f(b00[2], p[2]) == 0:
+                # print("edge b touches face a", file=self.tty)
+                return 1        # edge before face
+
+          k1_a = min(map(lambda x: x[2], a[0]))        # find the min z value
           k1_b = min(map(lambda x: x[2], b[0]))
-          return int(k1_a > k1_b) - int(k1_a < k1_b) or int(len(a[0]) > len(b[0])) - int(len(a[0]) < len(b[0]))
+          return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
         paths3d_2.sort(cmp=zcmp, reverse=True)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
