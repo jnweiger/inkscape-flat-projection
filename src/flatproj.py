@@ -20,7 +20,9 @@
 #
 # TODO: * fix style massging. No regexp, but disassembly into a dict
 #       * adjustment of line-width according to transformation.
-#       * use options instead of the hardcoded matrix R.
+#       * fix zcmp() to implement correct depth sorting of quads
+#       * objects jump wildly when rotated. arrange them around their source.
+#       * fix zcmp() to sort edges always above their adjacent faces
 # ---------------------------------------------------------------
 #
 # Dimetric 7,42: Rotate(Y, 69.7 deg), Rotate(X, 19.4 deg)

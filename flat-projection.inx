@@ -99,7 +99,7 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
   <effect needs-live-preview="false" >
     <object-type>all</object-type>
     <effects-menu>
-      <submenu _name="Modify Path"/>
+      <submenu _name="Generate from Path"/>
     </effects-menu>
   </effect>
 

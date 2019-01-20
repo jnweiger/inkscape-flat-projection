@@ -1,0 +1,12 @@
+point and plane
+===============
+
+determine on which side of a plane a point lies.
+determine on which side of a plane (0,0,-1000000) is.
+if both are on the same side, return 1
+if both are on oposite side, return -1
+
+
+much simpler math here, than in point_on_plane.txt, 
+but we cannot tell, if we are out of bounds, and just 
+performed a useless test.
