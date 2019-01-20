@@ -8,5 +8,11 @@ if both are on oposite side, return -1
 
 
 much simpler math here, than in point_on_plane.txt, 
-but we cannot tell, if we are out of bounds, and just 
-performed a useless test.
+but we cannot tell, if we are out of bound.
+
+We have planes that can possibly intersect.
+E.g. the side of a window can be extended to pierce the roof.
+If test points from the roof are compared with the window side, 
+we may get results on either side, spoiling this possible shortcut.
+
+we need to know of we are out of bounds.
