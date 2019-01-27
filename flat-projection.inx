@@ -92,7 +92,7 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <!-- Keep in sync with src/proj.py line 46 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.6</param>
+      <param name="about_version" type="description">Version 0.7</param>
     </page>
   </param>
 

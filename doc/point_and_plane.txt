@@ -15,4 +15,5 @@ E.g. the side of a window can be extended to pierce the roof.
 If test points from the roof are compared with the window side, 
 we may get results on either side, spoiling this possible shortcut.
 
-we need to know of we are out of bounds.
+We need to know of we are out of bounds.
+Would a bounding box do for knowing out of bounds?

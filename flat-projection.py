@@ -1416,6 +1416,9 @@ Option parser example:
 
         depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
 
+        proj_scale = 1.0 # autoscale value: 1.063 for dimetric, 1.22 for isometric
+        proj_yx = ''     # describe the projection as a string of two floating point angles as used with trimetric projection.
+        proj_rot = ''    # describe the user rotation as a string of three floating point angles.
         dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
         dest_g = {}      # map from dest_id to (group element, suffix)
         def find_dest_g(node, dest_layer):
@@ -1436,7 +1439,9 @@ Option parser example:
               id = src_id+'_'+str(n)
             dest_ids[src_id] = id
             src_path = self.current_layer.attrib.get('id','')+'/'+src_id
-            g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': src_path })
+            g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': src_path, 'proj_depth': str(self.options.depth),
+              'proj_apply_depth': self.options.apply_depth, 'proj_smoothness': str(self.options.smoothness),
+              'proj_yx': proj_yx, 'proj_rot': proj_rot, 'proj_scale': str(proj_scale) })
             # created in reverse order, so that g1 sits on top of the visibility stack
             g3 = inkex.etree.SubElement(g, 'g', { 'id': id+'_3', 'src': src_path })
             g2 = inkex.etree.SubElement(g, 'g', { 'id': id+'_2', 'src': src_path })
@@ -1510,23 +1515,34 @@ Option parser example:
           c, s = np.cos(theta), np.sin(theta)
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
+        def genSc(s):
+          "A uniform scale matrix in xyz"
+          return np.array( ((s, 0, 0), (0, s, 0), (0, 0, s)) )
+
         # user rotation
         uR = genRx(np.radians(0.0))
         if self.options.rotation_type.strip(" '\"") == 'standard_rotation':
           if   self.options.standard_rotation == 'x+90':
             uR = genRx(np.radians(90.))
+            proj_rot = '90,0,0'
           elif self.options.standard_rotation == 'x-90':
             uR = genRx(np.radians(-90.))
+            proj_rot = '-90,0,0'
           elif self.options.standard_rotation == 'y+90':
             uR = genRy(np.radians(90.))
+            proj_rot = '0,90,0'
           elif self.options.standard_rotation == 'y+180':
             uR = genRy(np.radians(180.))
+            proj_rot = '0,180,0'
           elif self.options.standard_rotation == 'y-90':
             uR = genRy(np.radians(-90.))
+            proj_rot = '0,-90,0'
           elif self.options.standard_rotation == 'z+90':
             uR = genRz(np.radians(90.))
+            proj_rot = '0,0,90'
           elif self.options.standard_rotation == 'z-90':
             uR = genRz(np.radians(-90.))
+            proj_rot = '0,0,-90'
           elif self.options.standard_rotation == 'none':
             pass
           else:
@@ -1537,10 +1553,13 @@ Option parser example:
           Ry = genRx(np.radians(float(self.options.manual_rotation_y)))
           Rz = genRx(np.radians(float(self.options.manual_rotation_z)))
           uR = np.matmul(Rx, np.matmul(Ry, Rz))
+          proj_rot = self.options.manual_rotation_x+','+self.options.manual_rotation_y+','+self.options.manual_rotation_z
 
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))
         Rx = genRx(np.radians(19.4))
+        if self.options.standard_projection_autoscale: proj_scale = 1.0604
+        proj_yx = '20.3,19.4'
         # Argh. Quotes are included here!
         if self.options.projection_type.strip(" '\"") == 'standard_projection':
             if   self.options.standard_projection in ('7,42', '7,41'):
@@ -1548,21 +1567,28 @@ Option parser example:
             elif self.options.standard_projection in ('42,7', '41,7'):
                 Ry = genRy(np.radians(69.7-90))
                 Rx = genRx(np.radians(19.4))
+                proj_yx = '-20.3,19.4'
             elif self.options.standard_projection == '30,30':
                 Ry = genRy(np.radians(45.0))
                 Rx = genRx(np.radians(35.26439))
+                if self.options.standard_projection_autoscale: proj_scale = 1.22
+                proj_yx = '45,35.26439'
             elif self.options.standard_projection == '30,30l':
                 Ry = genRy(np.radians(-45.0))
                 Rx = genRx(np.radians(35.26439))
+                if self.options.standard_projection_autoscale: proj_scale = 1.22
+                proj_yx = '45,35.26439'
             else:
                 inkex.errormsg("unknown standard_projection="+self.options.standard_projection+" -- use one of '7,42'; '42,7'; '30,30', or '30,30l'")
                 sys.exit(1)
         else:
-            inkex.errormsg("free proj")
+            # inkex.errormsg("free proj")
             Ry = genRy(np.radians(float(self.options.trimetric_projection_y)))
             Rx = genRx(np.radians(float(self.options.trimetric_projection_x)))
+            proj_yx = self.options.trimetric_projection_y+','+self.options.trimetric_projection_x
+            proj_scale = 1.0
 
-        R = np.matmul(uR, np.matmul(Ry, Rx))
+        R = np.matmul(genSc(proj_scale), np.matmul(uR, np.matmul(Ry, Rx)))
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         v = np.matmul([[0,0,depth]], R)         # test in which way depth points
