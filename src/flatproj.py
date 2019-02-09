@@ -76,6 +76,7 @@ else:   # Linux
 ## INLINE_BLOCK_START
 # for easier distribution, our Makefile can inline these imports when generating flat-projection.py from src/flatproj.py
 from inksvg import InkSvg, LinearPathGen
+from zsort42 import ZSort
 ## INLINE_BLOCK_END
 
 import json
