@@ -522,7 +522,7 @@ Option parser example:
         # (one short path each) in paths3d_2.
         #
         # First we sort them with ascending z-coordinate.
-        def zcmp(a,b):
+        def silly_zcmp(a,b):
           """ The tri-valued cmp() function is deprecated in python3. They apprently forgot about sort functions.
               This dirty equivalent is from https://stackoverflow.com/questions/15556813/python-why-cmp-is-useful
 
@@ -555,7 +555,9 @@ Option parser example:
           k1_a = min(map(lambda x: x[2], a[0]))        # find the min z value
           k1_b = min(map(lambda x: x[2], b[0]))
           return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
-        paths3d_2.sort(cmp=zcmp, reverse=True)
+
+        # paths3d_2.sort(cmp=silly_zcmp, reverse=True)
+        paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
         for path in paths3d_2:

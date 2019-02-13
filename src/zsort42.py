@@ -20,9 +20,9 @@ def _zcmp_f(a, b):
 
 def _xyz_eq(a, b):
     " Returns True, if all three coordinates are within ZCMP_EPS "
-    if abs(a[0]-b[0]) > ZCMP_EPS return False
-    if abs(a[1]-b[1]) > ZCMP_EPS return False
-    if abs(a[2]-b[2]) > ZCMP_EPS return False
+    if abs(a[0]-b[0]) > ZCMP_EPS: return False
+    if abs(a[1]-b[1]) > ZCMP_EPS: return False
+    if abs(a[2]-b[2]) > ZCMP_EPS: return False
     return True
 
 
@@ -75,9 +75,9 @@ class ZSort():
         if _xyz_eq(self.bbmin, oth.bbmin): return 1
         if _xyz_eq(self.bbmax, oth.bbmax): return 1
         psi = oth._z_ray_hit_face(self.data[0])
-        if psi is None or
-           psi[0] < oth.bbmin[0] or psi[0] > oth.bbmax[0] or
-           psi[1] < oth.bbmin[1] or psi[1] > oth.bbmax[1]:
+        if (psi is None or
+            psi[0] < oth.bbmin[0] or psi[0] > oth.bbmax[0] or
+            psi[1] < oth.bbmin[1] or psi[1] > oth.bbmax[1]):
             return self._zcmp_22(oth)
         return _zcmp_f(psi[2] - self.data[0][2])
 
@@ -102,14 +102,14 @@ class ZSort():
         other_center = oth.xy_center
         other_cartesian_radius = oth.yx_crad
         for i in range(4):
-            d = _xy_cdiff(self.data[i], other_center):
+            d = _xy_cdiff(self.data[i], other_center)
             if d < min_dist and d < other_cartesian_radius:
                 min_dist = d;
                 min_idx = i;
         other_center = self.xy_center
         other_cartesian_radius = self.xy_crad
         for i in range(4):
-            d = _xy_cdiff(oth.data[i], other_center):
+            d = _xy_cdiff(oth.data[i], other_center)
             if d < min_dist and d < other_cartesian_radius:
                 min_dist = d;
                 min_idx = i;
@@ -137,8 +137,8 @@ class ZSort():
                 We place the zcmp_22() and zcmp_24() methods into the slots.
                 We don't compute a normal.
             """
-            self.zcmp_2 = _zcmp_22
-            self.zcmp_4 = _zcmp_24
+            self.zcmp_2 = self._zcmp_22
+            self.zcmp_4 = self._zcmp_24
             self.bbmin = ( min(data[0][0], data[1][0]),
                            min(data[0][1], data[1][1]),
                            min(data[0][2], data[1][2]) )
@@ -147,8 +147,8 @@ class ZSort():
                            max(data[0][2], data[1][2]) )
         else:
             """ A face of four corners """
-            self.zcmp_2 = _zcmp_42
-            self.zcmp_4 = _zcmp_44
+            self.zcmp_2 = self._zcmp_42
+            self.zcmp_4 = self._zcmp_44
             self.bbmin = ( min(data[0][0], data[1][0], data[2][0], data[3][0]),
                            min(data[0][1], data[1][1], data[2][1], data[3][1]),
                            min(data[0][2], data[1][2], data[2][2], data[3][2]) )
@@ -162,4 +162,33 @@ class ZSort():
             self.face_ndotu = self.face_normal.dot(ray_direction)
         self.data = data
 
+
+    # https://wiki.python.org/moin/HowTo/Sorting#The_Old_Way_Using_the_cmp_Parameter
+    # In python3, the simple cmp operator was banned in favour of a silly code repetition
+    # interface of six almost identical operators.
+    def __lt__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) < 0
+        else:                 return self.zcmp_2(oth) < 0
+    def __gt__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) > 0
+        else:                 return self.zcmp_2(oth) > 0
+    def __eq__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) == 0
+        else:                 return self.zcmp_2(oth) == 0
+    def __le__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) <= 0
+        else:                 return self.zcmp_2(oth) <= 0
+    def __ge__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) >= 0
+        else:                 return self.zcmp_2(oth) >= 0
+    def __ne__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) != 0
+        else:                 return self.zcmp_2(oth) !=< 0
+        
+    @staticmethod
+    def cmp(a,b):
+        if len(b.data) > 2:
+            return a.zcmp_4(b)
+        else:
+            return a.zcmp_2(b)
 
