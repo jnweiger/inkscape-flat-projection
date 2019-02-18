@@ -58,7 +58,7 @@ class ZSort():
             return None
         w = pt - self.face_point
         si = -self.face_normal.dot(w) / self.face_ndotu
-        psi = w + si * ray_direction + self.face_point
+        psi = w + si * self.ray_direction + self.face_point
         return psi
 
 
@@ -131,7 +131,7 @@ class ZSort():
             return _zcmp_f(psi[2] - oth.data[min_idx][2])
 
 
-    def __init__(self, data):
+    def __init__(self, data, attr=None):
         if len(data) == 2:
             """ A line of two points.
                 We place the zcmp_22() and zcmp_24() methods into the slots.
@@ -159,8 +159,9 @@ class ZSort():
             self.xy_crad = ZCMP_EPS + 0.5 *_xy_cdiff(self.bbmax, self.bbmin)
             self.face_point = np.array(data[0])
             self.face_normal = np.cross(np.array(data[1])-self.face_point, np.array(data[2])-self.face_point)
-            self.face_ndotu = self.face_normal.dot(ray_direction)
+            self.face_ndotu = self.face_normal.dot(self.ray_direction)
         self.data = data
+        self.attr = attr
 
 
     # https://wiki.python.org/moin/HowTo/Sorting#The_Old_Way_Using_the_cmp_Parameter
@@ -183,7 +184,7 @@ class ZSort():
         else:                 return self.zcmp_2(oth) >= 0
     def __ne__(self, oth):
         if len(oth.data) > 2: return self.zcmp_4(oth) != 0
-        else:                 return self.zcmp_2(oth) !=< 0
+        else:                 return self.zcmp_2(oth) != 0
         
     @staticmethod
     def cmp(a,b):

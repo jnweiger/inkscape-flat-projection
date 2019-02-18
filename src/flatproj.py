@@ -556,7 +556,10 @@ Option parser example:
           k1_b = min(map(lambda x: x[2], b[0]))
           return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
 
-        # paths3d_2.sort(cmp=silly_zcmp, reverse=True)
+        #print("paths3d_2: ", paths3d_2, file=self.tty)
+        #paths3d_2.sort(cmp=silly_zcmp, reverse=True)
+        for i in paths3d_2:
+          paths3d_2[i] = ZSort(data=i[0], attr=i[1]))
         paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".

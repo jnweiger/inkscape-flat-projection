@@ -17,6 +17,7 @@
 # 2019-01-15, jw, v0.4  correct stacking of middle layer objects.
 # 2019-01-16, jw, v0.5  standard and free projections done. enforce stroke-width option added.
 # 2019-01-19, jw, v0.6  slightly improved zcmp(). Not yet robust.
+# 2019-01-26, jw, v0.7  option autoscale done, proj_* attributes added to g.
 #
 # TODO: * fix style massging. No regexp, but disassembly into a dict
 #       * adjustment of line-width according to transformation.
@@ -1221,7 +1222,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.6'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.7'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -1439,7 +1440,7 @@ Option parser example:
               id = src_id+'_'+str(n)
             dest_ids[src_id] = id
             src_path = self.current_layer.attrib.get('id','')+'/'+src_id
-            g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'src': src_path, 'proj_depth': str(self.options.depth),
+            g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'proj_src': src_path, 'proj_depth': str(self.options.depth),
               'proj_apply_depth': self.options.apply_depth, 'proj_smoothness': str(self.options.smoothness),
               'proj_yx': proj_yx, 'proj_rot': proj_rot, 'proj_scale': str(proj_scale) })
             # created in reverse order, so that g1 sits on top of the visibility stack
@@ -1649,7 +1650,7 @@ Option parser example:
         # (one short path each) in paths3d_2.
         #
         # First we sort them with ascending z-coordinate.
-        def zcmp(a,b):
+        def silly_zcmp(a,b):
           """ The tri-valued cmp() function is deprecated in python3. They apprently forgot about sort functions.
               This dirty equivalent is from https://stackoverflow.com/questions/15556813/python-why-cmp-is-useful
 
@@ -1682,7 +1683,10 @@ Option parser example:
           k1_a = min(map(lambda x: x[2], a[0]))        # find the min z value
           k1_b = min(map(lambda x: x[2], b[0]))
           return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
-        paths3d_2.sort(cmp=zcmp, reverse=True)
+
+        print("paths3d_2: ", paths3d_2, file=self.tty)
+        paths3d_2.sort(cmp=silly_zcmp, reverse=True)
+        # paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
         for path in paths3d_2:
