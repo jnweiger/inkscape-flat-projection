@@ -24,6 +24,7 @@ check:
 $(EXTNAME).py:
 	sed >  $@ -e '/INLINE_BLOCK_START/,$$d' < src/flatproj.py
 	sed >> $@ -e '/if __name__ ==/,$$d' < src/inksvg.py
+	sed >> $@ -e '/if __name__ ==/,$$d' -e '/^from\s\s*__future__\s\s*import\s/d' < src/zsort42.py
 	sed >> $@ -e '1,/INLINE_BLOCK_END/d' < src/flatproj.py
 
 #install and install_de is used by deb/dist.sh

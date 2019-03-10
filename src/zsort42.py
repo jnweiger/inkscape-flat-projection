@@ -79,7 +79,7 @@ class ZSort():
             psi[0] < oth.bbmin[0] or psi[0] > oth.bbmax[0] or
             psi[1] < oth.bbmin[1] or psi[1] > oth.bbmax[1]):
             return self._zcmp_22(oth)
-        return _zcmp_f(psi[2] - self.data[0][2])
+        return _zcmp_f(psi[2], self.data[0][2])
 
 
     def _zcmp_42(self, oth):
@@ -123,12 +123,12 @@ class ZSort():
             # our best point is self.data[min_idx]
             psi = oth._z_ray_hit_face(self.data[min_idx])
             if psi is None: return self._zcmp_22(oth)
-            return _zcmp_f(psi[2] - self.data[min_idx][2])
+            return _zcmp_f(psi[2], self.data[min_idx][2])
         else:
             # our best point is oth.data[min_idx]
             psi = self._z_ray_hit_face(oth.data[min_idx])
             if psi is None: return self._zcmp_22(oth)
-            return _zcmp_f(psi[2] - oth.data[min_idx][2])
+            return _zcmp_f(psi[2], oth.data[min_idx][2])
 
 
     def __init__(self, data, attr=None):
@@ -185,7 +185,7 @@ class ZSort():
     def __ne__(self, oth):
         if len(oth.data) > 2: return self.zcmp_4(oth) != 0
         else:                 return self.zcmp_2(oth) != 0
-        
+
     @staticmethod
     def cmp(a,b):
         if len(b.data) > 2:

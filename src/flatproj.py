@@ -18,6 +18,7 @@
 # 2019-01-16, jw, v0.5  standard and free projections done. enforce stroke-width option added.
 # 2019-01-19, jw, v0.6  slightly improved zcmp(). Not yet robust.
 # 2019-01-26, jw, v0.7  option autoscale done, proj_* attributes added to g.
+# 2019-03-10, jw, v0.8  using ZSort from  src/zsort42.py -- code complete, needs debugging.
 #
 # TODO: * fix style massging. No regexp, but disassembly into a dict
 #       * adjustment of line-width according to transformation.
@@ -94,7 +95,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.7'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.8'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -556,15 +557,17 @@ Option parser example:
           k1_b = min(map(lambda x: x[2], b[0]))
           return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
 
-        #print("paths3d_2: ", paths3d_2, file=self.tty)
+        # print("paths3d_2: ", paths3d_2, file=self.tty)
         #paths3d_2.sort(cmp=silly_zcmp, reverse=True)
-        for i in paths3d_2:
-          paths3d_2[i] = ZSort(data=i[0], attr=i[1]))
+        for i in range(len(paths3d_2)):
+          print("paths3d_2: i=%s" % i, file=self.tty)
+          paths3d_2[i] = ZSort(data=paths3d_2[i][0], attr=paths3d_2[i][1])
         paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
         for path in paths3d_2:
-          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path[1], 'd': paths_to_svgd([path[0]], 25.4/svg.dpi) })
+          # inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path[1], 'd': paths_to_svgd([path[0]], 25.4/svg.dpi) })
+          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path.attr, 'd': paths_to_svgd([path.data], 25.4/svg.dpi) })
           missing_id += 1
 
 

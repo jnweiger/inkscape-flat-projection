@@ -18,6 +18,7 @@
 # 2019-01-16, jw, v0.5  standard and free projections done. enforce stroke-width option added.
 # 2019-01-19, jw, v0.6  slightly improved zcmp(). Not yet robust.
 # 2019-01-26, jw, v0.7  option autoscale done, proj_* attributes added to g.
+# 2019-03-10, jw, v0.8  using ZSort from  src/zsort42.py -- code complete, needs debugging.
 #
 # TODO: * fix style massging. No regexp, but disassembly into a dict
 #       * adjustment of line-width according to transformation.
@@ -1206,6 +1207,200 @@ class InkSvg():
         else:
             return self.docTransform
 
+#! /usr/bin/python3
+#
+# FROM:
+# - https://stackoverflow.com/questions/5666222/3d-line-plane-intersection
+# Based on http://geomalgorithms.com/a05-_intersect-1.html
+
+import numpy as np
+
+ZCMP_EPS = 0.000001
+
+
+def _zcmp_f(a, b):
+    " comparing floating point is hideous. "
+    d = a - b
+    if d > ZCMP_EPS: return 1
+    if d < -ZCMP_EPS: return -1
+    return 0
+
+
+def _xyz_eq(a, b):
+    " Returns True, if all three coordinates are within ZCMP_EPS "
+    if abs(a[0]-b[0]) > ZCMP_EPS: return False
+    if abs(a[1]-b[1]) > ZCMP_EPS: return False
+    if abs(a[2]-b[2]) > ZCMP_EPS: return False
+    return True
+
+
+def _xy_cdiff(a,b):
+   "Returns the cartesian length of the difference of two 2d vectors. "
+   return abs(a[0]-b[0]) + abs(a[1]-b[1])
+
+
+class ZSort():
+    """ Higher Z coordinates point away from the camera. We draw them first, as we call sort with reverse=True. """
+
+
+    ray_direction = np.array([0,0,1])
+
+
+    def _z_point_in_face(self, pt):
+        """ check if pt is inside the face.
+            If the vector from a known point on the face to the pt has a zero dot product with the normal,
+            then pt is on the plane.
+        """
+        d = np.dot(self.face_normal, pt-self.face_point)
+        if abs(d) < ZCMP_EPS: return True
+        return False
+
+
+    def _z_ray_hit_face(self, xyz):
+        """ project a ray along the global ray_direction (z-axis) from point xyz. Compute where the ray intersects with the face. """
+        pt = np.array(xyz)
+        if abs(self.face_ndotu) < ZCMP_EPS:
+            print ("z-ray is parallel to face or within.")
+            if self._z_point_in_face(pt):
+              return pt
+            return None
+        w = pt - self.face_point
+        si = -self.face_normal.dot(w) / self.face_ndotu
+        psi = w + si * self.ray_direction + self.face_point
+        return psi
+
+
+    def _zcmp_22(self, oth):
+        """ simple z-average comparison. We return -1 for the larger z, so that this is drawn first. """
+        return _zcmp_f(self.bbmin[2]+self.bbmax[2], oth.bbmin[2]+oth.bbmax[2])
+
+
+    def _zcmp_24(self, oth):
+        """ A line is an edge of the face, it is technically of equal depth, but we put it in front for visibility.
+            A line is an edge of a face, if bbmin or bbmax of face and line are identical.
+            Otherwise we take the first point of the line, and use the face normal to decide stacking.
+        """
+        if _xyz_eq(self.bbmin, oth.bbmin): return 1
+        if _xyz_eq(self.bbmax, oth.bbmax): return 1
+        psi = oth._z_ray_hit_face(self.data[0])
+        if (psi is None or
+            psi[0] < oth.bbmin[0] or psi[0] > oth.bbmax[0] or
+            psi[1] < oth.bbmin[1] or psi[1] > oth.bbmax[1]):
+            return self._zcmp_22(oth)
+        return _zcmp_f(psi[2], self.data[0][2])
+
+
+    def _zcmp_42(self, oth):
+        return oth._zcmp_24(self)
+
+
+    def _zcmp_44(self, oth):
+        """ Compare face with face.
+            If (x,y) bounding boxes overlap, find one corner of one face with (x,y) inside the other face.
+            We implement this, by finding a corner point of one face that is closest to the center of the other.
+            Compute the z-distance at this corner using normals.
+            If bounding boxes do not overlap,  return _zcmp_22() instead.
+        """
+        # sort all x coordinates, sort all y coordinates
+
+        min_idx_in_self = True
+        min_idx = -1
+        min_dist = 1e999        # inf
+
+        other_center = oth.xy_center
+        other_cartesian_radius = oth.yx_crad
+        for i in range(4):
+            d = _xy_cdiff(self.data[i], other_center)
+            if d < min_dist and d < other_cartesian_radius:
+                min_dist = d;
+                min_idx = i;
+        other_center = self.xy_center
+        other_cartesian_radius = self.xy_crad
+        for i in range(4):
+            d = _xy_cdiff(oth.data[i], other_center)
+            if d < min_dist and d < other_cartesian_radius:
+                min_dist = d;
+                min_idx = i;
+                min_idx_in_self = False
+
+        if min_idx == -1:
+            # No overlap found. Return a dummy.
+            return self._zcmp_22(oth)
+
+        if min_idx_in_self == True:
+            # our best point is self.data[min_idx]
+            psi = oth._z_ray_hit_face(self.data[min_idx])
+            if psi is None: return self._zcmp_22(oth)
+            return _zcmp_f(psi[2], self.data[min_idx][2])
+        else:
+            # our best point is oth.data[min_idx]
+            psi = self._z_ray_hit_face(oth.data[min_idx])
+            if psi is None: return self._zcmp_22(oth)
+            return _zcmp_f(psi[2], oth.data[min_idx][2])
+
+
+    def __init__(self, data, attr=None):
+        if len(data) == 2:
+            """ A line of two points.
+                We place the zcmp_22() and zcmp_24() methods into the slots.
+                We don't compute a normal.
+            """
+            self.zcmp_2 = self._zcmp_22
+            self.zcmp_4 = self._zcmp_24
+            self.bbmin = ( min(data[0][0], data[1][0]),
+                           min(data[0][1], data[1][1]),
+                           min(data[0][2], data[1][2]) )
+            self.bbmax = ( max(data[0][0], data[1][0]),
+                           max(data[0][1], data[1][1]),
+                           max(data[0][2], data[1][2]) )
+        else:
+            """ A face of four corners """
+            self.zcmp_2 = self._zcmp_42
+            self.zcmp_4 = self._zcmp_44
+            self.bbmin = ( min(data[0][0], data[1][0], data[2][0], data[3][0]),
+                           min(data[0][1], data[1][1], data[2][1], data[3][1]),
+                           min(data[0][2], data[1][2], data[2][2], data[3][2]) )
+            self.bbmax = ( max(data[0][0], data[1][0], data[2][0], data[3][0]),
+                           max(data[0][1], data[1][1], data[2][1], data[3][1]),
+                           max(data[0][2], data[1][2], data[2][2], data[3][2]) )
+            self.xy_center = [ 0.5 * (self.bbmax[0] + self.bbmin[0]), 0.5 * (self.bbmax[1] + self.bbmin[1]) ]
+            self.xy_crad = ZCMP_EPS + 0.5 *_xy_cdiff(self.bbmax, self.bbmin)
+            self.face_point = np.array(data[0])
+            self.face_normal = np.cross(np.array(data[1])-self.face_point, np.array(data[2])-self.face_point)
+            self.face_ndotu = self.face_normal.dot(self.ray_direction)
+        self.data = data
+        self.attr = attr
+
+
+    # https://wiki.python.org/moin/HowTo/Sorting#The_Old_Way_Using_the_cmp_Parameter
+    # In python3, the simple cmp operator was banned in favour of a silly code repetition
+    # interface of six almost identical operators.
+    def __lt__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) < 0
+        else:                 return self.zcmp_2(oth) < 0
+    def __gt__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) > 0
+        else:                 return self.zcmp_2(oth) > 0
+    def __eq__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) == 0
+        else:                 return self.zcmp_2(oth) == 0
+    def __le__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) <= 0
+        else:                 return self.zcmp_2(oth) <= 0
+    def __ge__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) >= 0
+        else:                 return self.zcmp_2(oth) >= 0
+    def __ne__(self, oth):
+        if len(oth.data) > 2: return self.zcmp_4(oth) != 0
+        else:                 return self.zcmp_2(oth) != 0
+
+    @staticmethod
+    def cmp(a,b):
+        if len(b.data) > 2:
+            return a.zcmp_4(b)
+        else:
+            return a.zcmp_2(b)
+
 
 import json
 import inkex
@@ -1222,7 +1417,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.7'         # >= max(src/proj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.8'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -1684,13 +1879,17 @@ Option parser example:
           k1_b = min(map(lambda x: x[2], b[0]))
           return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
 
-        print("paths3d_2: ", paths3d_2, file=self.tty)
-        paths3d_2.sort(cmp=silly_zcmp, reverse=True)
-        # paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
+        # print("paths3d_2: ", paths3d_2, file=self.tty)
+        #paths3d_2.sort(cmp=silly_zcmp, reverse=True)
+        for i in range(len(paths3d_2)):
+          print("paths3d_2: i=%s" % i, file=self.tty)
+          paths3d_2[i] = ZSort(data=paths3d_2[i][0], attr=paths3d_2[i][1])
+        paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
         for path in paths3d_2:
-          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path[1], 'd': paths_to_svgd([path[0]], 25.4/svg.dpi) })
+          # inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path[1], 'd': paths_to_svgd([path[0]], 25.4/svg.dpi) })
+          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path.attr, 'd': paths_to_svgd([path.data], 25.4/svg.dpi) })
           missing_id += 1
 
 
