@@ -480,8 +480,10 @@ Option parser example:
             path_id = elem.attrib.get('id', '')+suf
             style_d = getPathStyle(elem)
             # print("stroke-width", style_d['stroke-width'], transform, file=self.tty)
-            if self.options.stroke_width.strip(' =') != '':
-                style_d["stroke-width"] = str(float(self.options.stroke_width.strip(' =')))
+            strokew = self.options.stroke_width.strip(' =')
+            if strokew != '':
+                strokew = strokew.replace(',', '.')
+                style_d["stroke-width"] = str(float(strokew))
             style_d_nostroke = style_d.copy()
             style_d_nostroke['stroke'] = 'none'
             style = fmtPathStyle(style_d)
@@ -560,9 +562,15 @@ Option parser example:
         # print("paths3d_2: ", paths3d_2, file=self.tty)
         #paths3d_2.sort(cmp=silly_zcmp, reverse=True)
         for i in range(len(paths3d_2)):
-          print("paths3d_2: i=%s" % i, file=self.tty)
+          print("paths3d_2: i=%s %s" % (i, paths3d_2[i][0]), file=self.tty)
           paths3d_2[i] = ZSort(data=paths3d_2[i][0], attr=paths3d_2[i][1])
         paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
+        print("Applying ZSort...", file=self.tty)
+        for i in range(len(paths3d_2)):
+          print("paths3d_2: i=%s %s" % (i, paths3d_2[i].data), file=self.tty)
+          if len(paths3d_2[i].data) > 2:
+            print("           i=%s xy_crad=%s xy_center=%s" % (i, paths3d_2[i].xy_crad, paths3d_2[i].xy_center), file=self.tty)
+            print("           i=%s face_point=%s face_normal=%s face_ndotu=%s" % (i, paths3d_2[i].face_point, paths3d_2[i].face_normal, paths3d_2[i].face_ndotu), file=self.tty)
 
         # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
         for path in paths3d_2:

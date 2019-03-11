@@ -9,6 +9,7 @@ import numpy as np
 
 ZCMP_EPS = 0.000001
 
+zcmp_out = open('/dev/tty', 'w')
 
 def _zcmp_f(a, b):
     " comparing floating point is hideous. "
@@ -98,6 +99,7 @@ class ZSort():
         min_idx_in_self = True
         min_idx = -1
         min_dist = 1e999        # inf
+        print("_zcmp_44: len: ", len(self.data), len(oth.data), oth, file=zcmp_out)
 
         other_center = oth.xy_center
         other_cartesian_radius = oth.yx_crad
@@ -132,6 +134,7 @@ class ZSort():
 
 
     def __init__(self, data, attr=None):
+        self.xy_crad = "ZCMP_EPS + 0.5 *_xy_cdiff(self.bbmax, self.bbmin)"
         if len(data) == 2:
             """ A line of two points.
                 We place the zcmp_22() and zcmp_24() methods into the slots.
@@ -162,6 +165,7 @@ class ZSort():
             self.face_ndotu = self.face_normal.dot(self.ray_direction)
         self.data = data
         self.attr = attr
+        print("__init__", self, "xy_crad", self.xy_crad, file=zcmp_out)
 
 
     # https://wiki.python.org/moin/HowTo/Sorting#The_Old_Way_Using_the_cmp_Parameter
@@ -188,8 +192,13 @@ class ZSort():
 
     @staticmethod
     def cmp(a,b):
+        print("cmp ", len(a.data), a.data[:2], len(b.data), b.data[:2], file=zcmp_out)
         if len(b.data) > 2:
-            return a.zcmp_4(b)
+            r = a.zcmp_4(b)
+            print(" ----> ", r, file=zcmp_out)
+            return r 
         else:
-            return a.zcmp_2(b)
+            r = a.zcmp_2(b)
+            print(" --> ", r, file=zcmp_out)
+            return r
 
