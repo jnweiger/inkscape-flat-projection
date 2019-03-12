@@ -132,6 +132,15 @@ class ZSort():
             if psi is None: return self._zcmp_22(oth)
             return _zcmp_f(psi[2], oth.data[min_idx][2])
 
+    def __repr__(self):
+        s = "{ bbmin=%s, bbmax=%s, xy_crad=%s, xy_center=%s, face_normal=%s, face_ndotu=%s, data=%s, attr=%s }" % (
+          self.bbmin, self.bbmax, 
+          getattr(self, 'xy_crad', None),
+          getattr(self, 'xy_center', None),
+          getattr(self, 'face_normal', None),
+          getattr(self, 'face_ndotu', None),
+          self.data, getattr(self, 'attr', None) )
+        return s
 
     def __init__(self, data, attr=None):
         self.xy_crad = "ZCMP_EPS + 0.5 *_xy_cdiff(self.bbmax, self.bbmin)"
