@@ -23,8 +23,63 @@
 # For best compatibility with python2 and python3 we choose the method using 
 # functools.cmp_to_key() with an old style cmp parameter function.
 
+from __future__ import print_function
+import functools
+
 test_zsort = [
   ((1,1), (5,3), "near" ),
   ((2,4), (10,2), "far" ),
-  ((3,3), (4,3)), "mid" ),
+  ((3,3), (4,3), "mid" ),
 ]
+
+eps = 1e-100
+
+
+def y_at_x(gp, gv, x):
+  dx = x-gp[0]
+  if abs(gv[0]) < eps:
+    return None
+  s = dx/gv[0]
+  if s < 0.0 or s > 1.0:
+    return None
+  return gp[1]+s*gv[1]
+
+
+def cmp2d(g1, g2):
+  """
+  returns -1 if g1 sorts in front of g2
+  returns 1  if g1 sorts in behind g2
+  returns 0  if there was no clear decision
+  """
+  # convert g1 into point and vector:
+  g1p = g1[0]
+  g1v = (g1[1][0] - g1[0][0], g1[1][1] - g1[0][1])
+  #
+  y = y_at_x(g1p, g1v, g2[0][0])
+  if y is not None:
+    if y < g2[0][1]-eps: return -1
+    if y > g2[0][1]+eps: return 1
+  # 
+  y = y_at_x(g1p, g1v, g2[1][0])
+  if y is not None:
+    if y < g2[1][1]-eps: return -1
+    if y > g2[1][1]+eps: return 1
+  # 
+  g2p = g2[0]
+  g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
+  y = y_at_x(g2p, g2v, g1[0][0])
+  if y is not None:
+    if g1[0][1]-eps < y: return -1
+    if g1[0][1]+eps > y: return 1
+  # 
+  y = y_at_x(g2p, g2v, g1[1][0])
+  if y is not None:
+    if g1[1][1]-eps < y: return -1
+    if g1[1][1]+eps > y: return 1
+  #
+  return 0
+
+k = functools.cmp_to_key(cmp2d)
+
+print(sorted(test_zsort, key=k))
+
