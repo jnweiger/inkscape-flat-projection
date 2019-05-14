@@ -283,12 +283,12 @@ Option parser example:
             ll = []
             for e in tup[1]:
                 ll.append(e[0])
-            paths_tupls.append( (tup[0], ll, tup[2]) )
+            paths_tupls.append( (tup[0], ll, tup[2]) )          # tup[2] is a transform matrix.
         self.paths = None       # free some memory
 
-        # print(repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
+        print("paths_tupls:\n", repr(paths_tupls), self.selected, svg.dpi, self.current_layer, file=self.tty)
 
-        depth = self.options.depth / 25.4 * svg.dpi         # convert from mm to svg units
+        depth = self.options.depth / 25.4 * svg.dpi             # convert from mm to svg units
 
         proj_scale = 1.0 # autoscale value: 1.063 for dimetric, 1.22 for isometric
         proj_yx = ''     # describe the projection as a string of two floating point angles as used with trimetric projection.
@@ -389,9 +389,67 @@ Option parser example:
           c, s = np.cos(theta), np.sin(theta)
           return np.array( ((c, s, 0), (-s, c, 0), (0, 0, 1)) )
 
+        def genRz2D(theta):
+          "A 2D rotation matrix about the Z axis. Example: Rz2D = genRz2D(np.radians(30))"
+          c, s = np.cos(theta), np.sin(theta)
+          return np.array( ((c, s), (-s, c)) )
+
         def genSc(s):
           "A uniform scale matrix in xyz"
           return np.array( ((s, 0, 0), (0, s, 0), (0, 0, s)) )
+
+        def scaleFromM(transform):
+          "Extract scale from a 2D transformation matrix"
+          if type(transform[0]) == type([]):
+            a = transform[0][0]
+            b = transform[1][0]
+            c = transform[0][1]
+            d = transform[1][1]
+          else:
+            a = transform[0]
+            b = transform[1]
+            c = transform[2]
+            d = transform[3]
+          delta = a * d - b * c
+          r = np.sqrt(a*a + b*b)
+          if r > eps:
+            return (r, delta/r)
+          else:
+            s = np.sqrt(c*c + d*d)
+            if s > eps:
+              return (delta/s, s)
+          return (1, 1)
+
+
+        def avgScaleFromM(transform):
+          sx, sy = scaleFromM(transform)
+          return 0.5 * (abs(sx)+abs(sy))
+
+
+        def phi2D(R):
+          """
+          Given a 3D rotation matrix R, we compute the angle phi projected in the 
+          x-y plane of point 0,0,1 relative to the negative Y axis.
+          """
+          (x2d_vec, y2d_vec, dummy) = np.matmul( [0,0,-1], R )
+          if abs(x2d_vec) < eps:
+            if abs(y2d_vec) < eps: return 0.0
+            phi = 0.5*np.pi
+            if y2d_vec < 0:
+              phi = -0.5*np.pi
+            else:
+              phi = 0.5*np.pi
+          else:
+            phi = np.arctan(y2d_vec/x2d_vec)
+          if x2d_vec < 0:       # adjustment for quadrant II and III
+            phi += np.pi
+          elif y2d_vec < 0:     # adjustment for quadrant IV
+            phi += 2*np.pi
+          phi += 0.5*np.pi      # adjustment for starting with 0 deg at neg Y-axis.
+          if phi >= 2*np.pi:
+            phi -= 2*np.pi      # adjustment to remain within 0..359.9999 deg
+          return phi
+
 
         # user rotation
         uR = genRx(np.radians(0.0))
@@ -463,6 +521,7 @@ Option parser example:
             proj_scale = 1.0
 
         R = np.matmul(genSc(proj_scale), np.matmul(uR, np.matmul(Ry, Rx)))
+        Rz2D = genRz2D(phi2D(R))
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         v = np.matmul([[0,0,depth]], R)         # test in which way depth points
@@ -483,7 +542,8 @@ Option parser example:
             strokew = self.options.stroke_width.strip(' =')
             if strokew != '':
                 strokew = strokew.replace(',', '.')
-                style_d["stroke-width"] = str(float(strokew))
+                sc = avgScaleFromM(transform)   # FIXME: is this scaling correct here?
+                style_d["stroke-width"] = str(float(strokew) * sc)
             style_d_nostroke = style_d.copy()
             style_d_nostroke['stroke'] = 'none'
             style = fmtPathStyle(style_d)
