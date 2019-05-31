@@ -1659,6 +1659,8 @@ Option parser example:
               return dest_g[dest_ids[src_id]]
             existing_ids = map(lambda x: x.attrib.get('id', ''), list(dest_layer))
             n = 0;
+            if src_id is None:
+                src_id = 'path_missing'
             print("find_selected_id:\n", src_id, node, file=self.tty)
             id = src_id+'_'+str(n)
             while id in existing_ids:
@@ -1928,7 +1930,7 @@ Option parser example:
                     paths3d_2.append({
                       'edge_style': style, 
                       'edge_data': [[a, b], [c, d]],
-                      'edge_visible': [0, 0],
+                      'edge_visible': [1, 1],
                       'style': style_nostroke, 
                       'data': [a,b,d,c,a]})
 

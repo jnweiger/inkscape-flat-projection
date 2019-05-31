@@ -318,6 +318,9 @@ Option parser example:
               return dest_g[dest_ids[src_id]]
             existing_ids = map(lambda x: x.attrib.get('id', ''), list(dest_layer))
             n = 0;
+            if src_id is None:
+                print("Please select one or more objects.", file=dev.stderr)
+                return
             print("find_selected_id:\n", src_id, node, file=self.tty)
             id = src_id+'_'+str(n)
             while id in existing_ids:
