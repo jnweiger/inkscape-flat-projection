@@ -19,12 +19,14 @@
 # 2019-01-19, jw, v0.6  slightly improved zcmp(). Not yet robust.
 # 2019-01-26, jw, v0.7  option autoscale done, proj_* attributes added to g.
 # 2019-03-10, jw, v0.8  using ZSort from  src/zsort42.py -- code complete, needs debugging.
+#                       * fixed style massaging. No regexp, but disassembly into a dict
+# 2019-05-12, jw, v0.9  using zsort2d, no debugging needed, but code incomplete.
+#                       * obsoleted: fix zcmp() to implement correct depth sorting of quads
+#                       * obsoleted: fix zcmp() to sort edges always above their adjacent faces
 #
-# TODO: * fix style massging. No regexp, but disassembly into a dict
-#       * adjustment of line-width according to transformation.
-#       * fix zcmp() to implement correct depth sorting of quads
-#       * objects jump wildly when rotated. arrange them around their source.
-#       * fix zcmp() to sort edges always above their adjacent faces
+# TODO:
+#   * test: adjustment of line-width according to transformation.
+#   * objects jump wildly when rotated. arrange them around their source.
 # ---------------------------------------------------------------
 #
 # Dimetric 7,42: Rotate(Y, 69.7 deg), Rotate(X, 19.4 deg)
@@ -43,26 +45,28 @@
 #  -> same as above :-)
 #
 # Extend an array of xy vectors array into xyz vectors
-# a = np.random.rand(5,2)
-#  array([[ 0.34130538,  0.17759346],
-#         [ 0.12913702,  0.82202647],
-#         [ 0.98076566,  0.28258448],
-#         [ 0.53837714,  0.3364164 ],
-#         [ 0.97548482,  0.26674535]])
+# a = np.random.rand(5,2) * 100
+#  array([[ 86.85675737,  85.44421643],
+#       [ 31.11925583,  11.41818619],
+#       [ 71.83803221,  63.15662683],
+#       [ 45.21094383,  75.48939099],
+#       [ 63.8159168 ,  49.47674044]])
+#
 # b = np.zeros( (a.shape[0], 3) )
 # b[:,:-1] = a
 # b += [0,0,33]
-#  array([[  0.34130538,   0.17759346,  33.        ],
-#         [  0.12913702,   0.82202647,  33.        ],
-#         [  0.98076566,   0.28258448,  33.        ],
-#         [  0.53837714,   0.3364164 ,  33.        ],
-#         [  0.97548482,   0.26674535,  33.        ]])
+#  array([[ 86.85675737,  85.44421643,  33.        ],
+#        [ 31.11925583,  11.41818619,  33.        ],
+#        [ 71.83803221,  63.15662683,  33.        ],
+#        [ 45.21094383,  75.48939099,  33.        ],
+#        [ 63.8159168 ,  49.47674044,  33.        ]])
+# np.matmul(b, R)
 
 
 # python2 compatibility:
 from __future__ import print_function
 
-import sys, time
+import sys, time, functools
 import numpy as np            # Tav's perspective extension also uses numpy.
 
 sys_platform = sys.platform.lower()
@@ -77,7 +81,6 @@ else:   # Linux
 ## INLINE_BLOCK_START
 # for easier distribution, our Makefile can inline these imports when generating flat-projection.py from src/flatproj.py
 from inksvg import InkSvg, LinearPathGen
-from zsort42 import ZSort
 ## INLINE_BLOCK_END
 
 import json
@@ -152,6 +155,14 @@ Option parser example:
         self.OptionParser.add_option(
             "--standard_projection_autoscale", action="store", type="inkbool", dest="standard_projection_autoscale", default=True,
             help="scale isometric and dimetric projection so that apparent lengths are original lengths. Used when projection_type=standard_projection")
+
+        self.OptionParser.add_option(
+            "--with_sides", action="store", type="inkbool", dest="with_sides", default=True,
+            help="Render perimeter faces. Default: True")
+
+        self.OptionParser.add_option(
+            "--with_back", action="store", type="inkbool", dest="with_back", default=True,
+            help="Render back wall. Default: True")
 
 
         self.OptionParser.add_option(
@@ -307,6 +318,7 @@ Option parser example:
               return dest_g[dest_ids[src_id]]
             existing_ids = map(lambda x: x.attrib.get('id', ''), list(dest_layer))
             n = 0;
+            print("find_selected_id:\n", src_id, node, file=self.tty)
             id = src_id+'_'+str(n)
             while id in existing_ids:
               n = n+1
@@ -412,11 +424,11 @@ Option parser example:
             d = transform[3]
           delta = a * d - b * c
           r = np.sqrt(a*a + b*b)
-          if r > eps:
+          if r > CMP_EPS:
             return (r, delta/r)
           else:
             s = np.sqrt(c*c + d*d)
-            if s > eps:
+            if s > CMP_EPS:
               return (delta/s, s)
           return (1, 1)
 
@@ -428,12 +440,12 @@ Option parser example:
 
         def phi2D(R):
           """
-          Given a 3D rotation matrix R, we compute the angle phi projected in the 
+          Given a 3D rotation matrix R, we compute the angle phi projected in the
           x-y plane of point 0,0,1 relative to the negative Y axis.
           """
           (x2d_vec, y2d_vec, dummy) = np.matmul( [0,0,-1], R )
-          if abs(x2d_vec) < eps:
-            if abs(y2d_vec) < eps: return 0.0
+          if abs(x2d_vec) < CMP_EPS:
+            if abs(y2d_vec) < CMP_EPS: return 0.0
             phi = 0.5*np.pi
             if y2d_vec < 0:
               phi = -0.5*np.pi
@@ -556,84 +568,43 @@ Option parser example:
             paths3d_3 = []
             extrude = self.is_extrude_color(svg, elem, self.options.apply_depth)
             for path in paths:
+              # Extend an array of xy vectors (path) into into xyz vectors with all z==0 (path3d_1)
               p3d_1 = np.zeros( (len(path), 3) )
-              p3d_1[:,:-1] = path
+              p3d_1[:,:-1] = path       # magic numpy slicing ..
+              # paths3d_1 is the front face: rotate p3d_1 into 3D space according to R
               paths3d_1.append(np.matmul(p3d_1, R))
               if extrude:
+                # paths3d_3 is the back face: translate p3d_1 along z-axis then rotate into 3D space according to R
                 p3d_1 += [0, 0, depth]
                 paths3d_3.append(np.matmul(p3d_1, R))
-                c = (0,0)       # need it after the loop
-                for i in range(0, len(paths3d_1[-1])-1):
-                  a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
-                  c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
-                  paths3d_2.append([[a,b], style])                # visible edge
-                  paths3d_2.append([[a,b,d,c,a], style_nostroke]) # filled face
-                if cmp_f(c[0], paths3d_1[-1][0][0]) != 0 or cmp_f(c[1], paths3d_1[-1][0][1]) != 0:
-                  # do not append the last edge if it is a closed subpath.
-                  paths3d_2.append([[c,d], style])                # visible edge
 
-            if extrude:
+                # paths3d_2 holds all permimeter faces: beware of z-sort dragons.
+                ##########################
+                if self.options.with_sides:
+                  for i in range(0, len(paths3d_1[-1])-1):
+                    a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
+                    c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
+                    paths3d_2.append({
+                      'edge_style': style, 
+                      'edge_data': [[a, b], [c, d]],
+                      'edge_visible': [1, 1],
+                      'style': style_nostroke, 
+                      'data': [a,b,d,c,a]})
+
+            if extrude and self.options.with_back:
                 # populate back face with selected colors only
                 inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
             # populate front face with all colors
             inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
-        # while g1 an g3 resemble the subpath structure of the original object,
-        # g2 is different:
-        # it contains objects of 2 nodes (visible edges), or 5 nodes (filled faces without stroke).
-        # g1 and g3 are populated one subpath per time above. For g2 we accumulate all edge and face objects
-        # (one short path each) in paths3d_2.
-        #
-        # First we sort them with ascending z-coordinate.
-        def silly_zcmp(a,b):
-          """ The tri-valued cmp() function is deprecated in python3. They apprently forgot about sort functions.
-              This dirty equivalent is from https://stackoverflow.com/questions/15556813/python-why-cmp-is-useful
-
-              We see here edges (2 points) and faces (5 points).
-              Edges and faces may touch.  If so, we compare z coordinates at the touch point.
-              Otherwise we compare at zmin. FIXME: this is better than comparing zmax, but may not always work correctly.
-              For both, 2 point and 5 point objects we compute the minimum z value as refernce.
-              5 point objects sort lower than 2 point objects, if their z-refence is equal.
-          """
-          if len(a[0]) == 2 and len(b[0]) == 5:
-            " find touch point in b "
-            a00 = a[0][0]
-            # print("edge a ? face b", a00, file=self.tty)
-            for p in b[0]:
-              # print("  cmp_f", p, cmp_f(a00[0], p[0]), cmp_f(a00[1], p[1]), cmp_f(a00[2], p[2]), file=self.tty)
-              if cmp_f(a00[0], p[0]) == 0 and cmp_f(a00[1], p[1]) == 0 and cmp_f(a00[2], p[2]) == 0:
-                # print("edge a touches face b", file=self.tty)
-                return -1       # edge before face
-
-          if len(a[0]) == 5 and len(b[0]) == 2:
-            " find touch point in a "
-            b00 = b[0][0]
-            # print("edge b ? face a", b00, file=self.tty)
-            for p in a[0]:
-              # print("  cmp_f", p, cmp_f(b00[0], p[0]), cmp_f(b00[1], p[1]), cmp_f(b00[2], p[2]), file=self.tty)
-              if cmp_f(b00[0], p[0]) == 0 and cmp_f(b00[1], p[1]) == 0 and cmp_f(b00[2], p[2]) == 0:
-                # print("edge b touches face a", file=self.tty)
-                return 1        # edge before face
-
-          k1_a = min(map(lambda x: x[2], a[0]))        # find the min z value
-          k1_b = min(map(lambda x: x[2], b[0]))
-          return cmp_f(k1_a, k1_b) or cmp_f(len(a[0]), len(b[0]))
-
-        # print("paths3d_2: ", paths3d_2, file=self.tty)
-        #paths3d_2.sort(cmp=silly_zcmp, reverse=True)
-        for i in range(len(paths3d_2)):
-          print("paths3d_2: i=%s %s" % (i, paths3d_2[i][0]), file=self.tty)
-          paths3d_2[i] = ZSort(data=paths3d_2[i][0], attr=paths3d_2[i][1])
-        paths3d_2.sort(cmp=ZSort.cmp, reverse=True)
-        print("Applying ZSort...", file=self.tty)
-        for i in range(len(paths3d_2)):
-          print("paths3d_2: i=%s %s" % (i, paths3d_2[i]), file=self.tty)
-
-        # Second we add them to g2, where the 5 point objects use a modified style with "stroke:none".
-        for path in paths3d_2:
-          # inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path[1], 'd': paths_to_svgd([path[0]], 25.4/svg.dpi) })
-          inkex.etree.SubElement(g2, 'path', { 'id': 'pathe'+str(missing_id), 'style': path.attr, 'd': paths_to_svgd([path.data], 25.4/svg.dpi) })
-          missing_id += 1
+        if self.options.with_sides:
+          for path in paths3d_2:
+            if path['edge_visible'][0]:
+              inkex.etree.SubElement(g2, 'path', { 'id': 'path_e1_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][0]], 25.4/svg.dpi) })
+            if path['edge_visible'][1]:
+              inkex.etree.SubElement(g2, 'path', { 'id': 'path_e2_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][1]], 25.4/svg.dpi) })
+            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
+            missing_id += 1
 
 
 if __name__ == '__main__':
