@@ -371,6 +371,9 @@ Option parser example:
             d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
+        def path_c4(data, idx, scale=1.0):
+          return 0.25*scale*(data[0][idx]+data[1][idx]+data[2][idx]+data[3][idx])
+
         # from fablabnbg/inkscape-paths2openscad
         def getPathStyle(node):
           style = node.get('style', '')
@@ -725,7 +728,11 @@ Option parser example:
           for path in paths3d_2:
             inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             ### DEBUGGING output
-            inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),  'style': 'font-size:8px;fill:#0000ff', 'x': str(path[0][0][0]), 'y': str(path[0][0][1]) }).text = str(sorted_idx) + '(' + str(path['orig_idx']) + ')'
+            inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
+                'style': 'font-size:3px;fill:#0000ff',
+                'x': str(path_c4(path['data'], 0, 25.4/svg.dpi)),
+                'y': str(path_c4(path['data'], 1, 25.4/svg.dpi))
+                 }).text = str(sorted_idx) + '(' + str(path['orig_idx']) + ')'
             if path['edge_visible'][0]:
               inkex.etree.SubElement(g2, 'path', { 'id': 'path_e1_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][0]], 25.4/svg.dpi) })
             if path['edge_visible'][1]:

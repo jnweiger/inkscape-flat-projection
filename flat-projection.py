@@ -1712,6 +1712,9 @@ Option parser example:
             d += points_to_svgd(p, scale) + ' '
           return d[:-1]
 
+        def path_c4(data, idx, scale=1.0):
+          return 0.25*scale*(data[0][idx]+data[1][idx]+data[2][idx]+data[3][idx])
+
         # from fablabnbg/inkscape-paths2openscad
         def getPathStyle(node):
           style = node.get('style', '')
@@ -1991,7 +1994,8 @@ Option parser example:
         else:
             backview = False
 
-        paths3d_2 = []                         # side: visible edges and faces
+        paths2d_flat = []                       # one list of all line segments.
+        paths3d_2 = []                          # side: visible edges and faces
         for tupl in paths_tupls:
             (elem, paths, transform) = tupl
             (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
@@ -2022,6 +2026,8 @@ Option parser example:
               p3d_1[:,:-1] = path       # magic numpy slicing ..
               # paths3d_1 is the front face: rotate p3d_1 into 3D space according to R
               paths3d_1.append(np.matmul(p3d_1, R))
+              for i in range(0, len(path)-1):
+                paths2d_flat.append([path[i], path[i+1]])
               if extrude:
                 # paths3d_3 is the back face: translate p3d_1 along z-axis then rotate into 3D space according to R
                 p3d_1 += [0, 0, depth]
@@ -2030,13 +2036,13 @@ Option parser example:
                 # paths3d_2 holds all permimeter faces: beware of z-sort dragons.
                 ##########################
                 if self.options.with_sides:
-                  assert(len(paths3d_1) == len(path))
                   for i in range(0, len(paths3d_1[-1])-1):
                     a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                     c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
+                    idx = len(paths3d_2)
                     paths3d_2.append({
-                      'orig_idx': len(paths3d_2),
-                      'orig_2Dpath': [path[i], path[i+1]],
+                      'orig_idx': idx,
+                      'orig_2Dpath': paths2d_flat[idx],
                       'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
@@ -2063,7 +2069,11 @@ Option parser example:
           for path in paths3d_2:
             inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             ### DEBUGGING output
-            inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),  'style': 'font-size:8px;fill:#0000ff', 'x': str(path[0][0][0]), 'y': str(path[0][0][1]) }).text = str(sorted_idx) + '(' + str(path['orig_idx']) + ')'
+            inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
+                'style': 'font-size:3px;fill:#0000ff',
+                'x': str(path_c4(path['data'], 0, 25.4/svg.dpi)),
+                'y': str(path_c4(path['data'], 1, 25.4/svg.dpi))
+                 }).text = str(sorted_idx) + '(' + str(path['orig_idx']) + ')'
             if path['edge_visible'][0]:
               inkex.etree.SubElement(g2, 'path', { 'id': 'path_e1_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][0]], 25.4/svg.dpi) })
             if path['edge_visible'][1]:
