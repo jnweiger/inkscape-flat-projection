@@ -10,7 +10,7 @@
 #     - if an eye-vector from an end-point pierces the other line. We have a sort criteria.
 #     - if all 4 eye vectors are unobstructed, keep sort order as is.
 # - lines:
-#   * Each quad-face starts with having 4 lines attached. 
+#   * Each quad-face starts with having 4 lines attached.
 #   * no sorting is done for these lines. They are drawn when the face is drawn (exactly before the face)
 #   * lines in Z direction can be eliminated as duplicate lines:
 #     - if faces share an endpoint, there is a duplicate line at this end point.
@@ -20,7 +20,7 @@
 #
 # We only have a partial ordering. Thus Schwarzian transform cannot be used.
 #
-# For best compatibility with python2 and python3 we choose the method using 
+# For best compatibility with python2 and python3 we choose the method using
 # functools.cmp_to_key() with an old style cmp parameter function.
 
 from __future__ import print_function
@@ -59,19 +59,19 @@ def cmp2D(g1, g2):
   if y is not None:
     if y < g2[0][1]-eps: return -1
     if y > g2[0][1]+eps: return 1
-  # 
+  #
   y = y_at_x(g1p, g1v, g2[1][0])
   if y is not None:
     if y < g2[1][1]-eps: return -1
     if y > g2[1][1]+eps: return 1
-  # 
+  #
   g2p = g2[0]
   g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
   y = y_at_x(g2p, g2v, g1[0][0])
   if y is not None:
     if g1[0][1]-eps < y: return -1
     if g1[0][1]+eps > y: return 1
-  # 
+  #
   y = y_at_x(g2p, g2v, g1[1][0])
   if y is not None:
     if g1[1][1]-eps < y: return -1
@@ -85,7 +85,7 @@ def cmp2D(g1, g2):
 
 def genRx(theta):
   "A rotation matrix about the X axis. Example: Rx = genRx(np.radians(30))"
-  c, s = np.cos(theta), np.sin(theta) 
+  c, s = np.cos(theta), np.sin(theta)
   return np.array( ((1, 0, 0), (0, c, s), (0, -s, c)) )
 
 
@@ -103,7 +103,7 @@ def genRz2D(theta):
 
 def phi2D(R):
   """
-  Given a 3D rotation matrix R, we compute the angle phi projected in the 
+  Given a 3D rotation matrix R, we compute the angle phi projected in the
   x-y plane of point 0,0,1 relative to the negative Y axis.
   """
   (x2d_vec, y2d_vec, dummy) = np.matmul( [0,0,-1], R )
@@ -147,11 +147,11 @@ def dphi2D(x2d_vec, y2d_vec):
 
 
 # Dimetric 7,42 transformation
-Ry = genRy(np.radians(69.7)) 
+Ry = genRy(np.radians(69.7))
 Rx = genRx(np.radians(19.4))
 
 ## Isometric transformation
-# Ry = genRy(np.radians(45)) 
+# Ry = genRy(np.radians(45))
 # Rx = genRx(np.radians(35.26439))
 
 R = np.matmul(Ry, Rx)

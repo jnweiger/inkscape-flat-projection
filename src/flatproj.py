@@ -365,7 +365,7 @@ Option parser example:
           return svgd
 
         def paths_to_svgd(paths, scale=1.0):
-          " multiple disconnected lists of points can exist in one svg path"
+          """ multiple disconnected lists of points can exist in one svg path """
           d = ''
           for p in paths:
             d += points_to_svgd(p, scale) + ' '
@@ -390,6 +390,107 @@ Option parser example:
           s = ''
           for key in sty: s += str(key)+':'+str(sty[key])+';'
           return s.rstrip(';')
+
+        ## import from test_zsort2d.py
+
+        def y_at_x(gp, gv, x):
+          dx = x-gp[0]
+          if abs(gv[0]) < eps:
+            return None
+          s = dx/gv[0]
+          if s < 0.0 or s > 1.0:
+            return None
+          return gp[1]+s*gv[1]
+
+
+        # Zsort is only done for the rim.
+        # - the general 3d face sorting problem can be reduced to a 2D problem as all faces span between two parallel planes.
+        # - Each quad-face can be represented by a two-point line in 2D.
+        # - We need to find a 2D rotation that so that the eye vector is exactly downwards in 2D.
+        # - rotate all faces.
+        # - comparison:
+        #   test all 4 endpoints:
+        #     - if an eye-vector from an end-point pierces the other line. We have a sort criteria.
+        #     - if all 4 eye vectors are unobstructed, keep sort order as is.
+        # - lines:
+        #   * Each quad-face starts with having 4 lines attached.
+        #   * no sorting is done for these lines. They are drawn when the face is drawn (exactly before the face)
+        #   * lines in Z direction can be eliminated as duplicate lines:
+        #     - if faces share an endpoint, there is a duplicate line at this end point.
+        #     - we remove the line from the face that is sorted below.
+        #
+        # References: https://docs.python.org/3.3/howto/sorting.html
+        #
+        # We only have a partial ordering. Thus Schwarzian transform cannot be used.
+        #
+        # For best compatibility with python2 and python3 we choose the method using
+        # functools.cmp_to_key() with an old style cmp parameter function.
+        #
+        def cmp2D(g1, g2):
+          """
+          returns -1 if g1 sorts in front of g2
+          returns 1  if g1 sorts in behind g2
+          returns 0  if there was no clear decision
+          """
+          # convert g1 into point and vector:
+          g1p = g1[0]
+          g1v = (g1[1][0] - g1[0][0], g1[1][1] - g1[0][1])
+          #
+          y = y_at_x(g1p, g1v, g2[0][0])
+          if y is not None:
+            if y < g2[0][1]-eps: return -1
+            if y > g2[0][1]+eps: return 1
+          #
+          y = y_at_x(g1p, g1v, g2[1][0])
+          if y is not None:
+            if y < g2[1][1]-eps: return -1
+            if y > g2[1][1]+eps: return 1
+          #
+          g2p = g2[0]
+          g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
+          y = y_at_x(g2p, g2v, g1[0][0])
+          if y is not None:
+            if g1[0][1]-eps < y: return -1
+            if g1[0][1]+eps > y: return 1
+          #
+          y = y_at_x(g2p, g2v, g1[1][0])
+          if y is not None:
+            if g1[1][1]-eps < y: return -1
+            if g1[1][1]+eps > y: return 1
+          #
+          # non-overlapping. keep the index order.
+          if g1[2] == g2[2]: return 0
+          if g1[2] <  g2[2]: return -1
+          return 1
+
+
+        def phi2D(R):
+          """
+          Given a 3D rotation matrix R, we compute the angle phi projected in the
+          x-y plane of point 0,0,1 relative to the negative Y axis.
+          """
+          (x2d_vec, y2d_vec, dummy) = np.matmul( [0,0,-1], R )
+          if abs(x2d_vec) < eps:
+            if abs(y2d_vec) < eps: return 0.0
+            phi = 0.5*np.pi
+            if y2d_vec < 0:
+              phi = -0.5*np.pi
+            else:
+              phi = 0.5*np.pi
+          else:
+            phi = np.arctan(y2d_vec/x2d_vec)
+          if x2d_vec < 0:       # adjustment for quadrant II and III
+            phi += np.pi
+          elif y2d_vec < 0:     # adjustment for quadrant IV
+            phi += 2*np.pi
+          phi += 0.5*np.pi      # adjustment for starting with 0 deg at neg Y-axis.
+          if phi >= 2*np.pi:
+            phi -= 2*np.pi      # adjustment to remain within 0..359.9999 deg
+          return phi
+
+
+        ## end import from test_zsort2d.py
+
 
         # shapes from http://mathworld.wolfram.com/RotationMatrix.html
         # (this disagrees with https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations, though)
@@ -549,7 +650,8 @@ Option parser example:
         else:
             backview = False
 
-        paths3d_2 = []                         # side: visible edges and faces
+        paths2d_flat = []                       # one list of all line segments.
+        paths3d_2 = []                          # side: visible edges and faces
         for tupl in paths_tupls:
             (elem, paths, transform) = tupl
             (g1, g2, g3, suf) = find_dest_g(elem, dest_layer)
@@ -580,6 +682,8 @@ Option parser example:
               p3d_1[:,:-1] = path       # magic numpy slicing ..
               # paths3d_1 is the front face: rotate p3d_1 into 3D space according to R
               paths3d_1.append(np.matmul(p3d_1, R))
+              for i in range(0, len(path)-1):
+                paths2d_flat.append([path[i], path[i+1]])
               if extrude:
                 # paths3d_3 is the back face: translate p3d_1 along z-axis then rotate into 3D space according to R
                 p3d_1 += [0, 0, depth]
@@ -591,7 +695,10 @@ Option parser example:
                   for i in range(0, len(paths3d_1[-1])-1):
                     a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                     c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
+                    idx = len(paths3d_2)
                     paths3d_2.append({
+                      'orig_idx': idx,
+                      'orig_2Dpath': paths2d_flat[idx],
                       'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
@@ -606,15 +713,25 @@ Option parser example:
                 inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
         if self.options.with_sides:
-          ## 1) Sort the entries in paths3d_2 with zsort2d()
+          ## 1) Sort the entries in paths3d_2 with cmp2D() "frontmost last"
+          # prepare a rotated version of the original two-D line set 'orig_2Dpath'
+          # so that cmp2D can sort towards negaive Y-Axis
+          k = functools.cmp_to_key(cmp2D)
+
           ## 2) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
+
+          ## add the sorted elements to the dom tree.
+          sorted_idx = 0
           for path in paths3d_2:
+            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
+            ### DEBUGGING output
+            inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),  'style': 'font-size:8px;fill:#0000ff', 'x': str(path[0][0][0]), 'y': str(path[0][0][1]) }).text = str(sorted_idx) + '(' + str(path['orig_idx']) + ')'
             if path['edge_visible'][0]:
               inkex.etree.SubElement(g2, 'path', { 'id': 'path_e1_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][0]], 25.4/svg.dpi) })
             if path['edge_visible'][1]:
               inkex.etree.SubElement(g2, 'path', { 'id': 'path_e2_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][1]], 25.4/svg.dpi) })
-            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             missing_id += 1
+            sorted_idx += 1
 
 
 if __name__ == '__main__':
