@@ -48,7 +48,7 @@
         <page name='trimetric_projection' gui-text='Free Trimetric'>
           <param name="trimetric_projection_y" type="float" min="-180" max="180" appearance="full" gui-text="Rotate Y [°]:  ">22.1</param>
           <param name="trimetric_projection_x" type="float" min="-180" max="180" appearance="full" gui-text="Rotate X [°]:  ">19.4</param>
-           <param name="trimetric_projection_help" type="description">We first apply Y-axis, then X-axis rotation. 
+           <param name="trimetric_projection_help" type="description">We first apply Y-axis, then X-axis rotation.
 Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.26439°.</param>
         </page>
       </param>
@@ -81,10 +81,12 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
       <param name="smoothness_help" type="description">Used when rendering curves. Smaller values are smoother. Range: 0.0001 to 5</param>
       <param name="spacer" type="description"> </param>
 
+      <param name="with_front" type="boolean" gui-text="Render front wall">true</param>
+      <param name="with_front_desc"  type="description">Almost always on. Remove e.g. to show a hollow shell.</param>
       <param name="with_sides" type="boolean" gui-text="Render side walls">true</param>
       <param name="with_sides_desc"  type="description">Render perimeter faces. May take awhile for complex shapes.</param>
       <param name="with_back" type="boolean" gui-text="Render back wall">true</param>
-      <param name="with_sides_desc"  type="description">Disabling both side walls and back walls is the same as applying depth==0.0</param>
+      <param name="with_back_desc"  type="description">Disabling both side walls and back walls is the same as applying depth==0.0</param>
 
     </page>
 
@@ -99,7 +101,7 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <!-- Keep in sync with src/proj.py line 46 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.8</param>
+      <param name="about_version" type="description">Version 0.9</param>
     </page>
   </param>
 

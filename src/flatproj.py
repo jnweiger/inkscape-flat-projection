@@ -98,7 +98,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.8'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.9'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -155,6 +155,10 @@ Option parser example:
         self.OptionParser.add_option(
             "--standard_projection_autoscale", action="store", type="inkbool", dest="standard_projection_autoscale", default=True,
             help="scale isometric and dimetric projection so that apparent lengths are original lengths. Used when projection_type=standard_projection")
+
+        self.OptionParser.add_option(
+            "--with_front", action="store", type="inkbool", dest="with_front", default=True,
+            help="Render front wall. Default: True")
 
         self.OptionParser.add_option(
             "--with_sides", action="store", type="inkbool", dest="with_sides", default=True,
@@ -588,19 +592,22 @@ Option parser example:
                     a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                     c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
                     paths3d_2.append({
-                      'edge_style': style, 
+                      'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
-                      'style': style_nostroke, 
+                      'style': style_nostroke,
                       'data': [a,b,d,c,a]})
 
             if extrude and self.options.with_back:
                 # populate back face with selected colors only
                 inkex.etree.SubElement(g3, 'path', { 'id': path_id+'3', 'style': style, 'd': paths_to_svgd(paths3d_3, 25.4/svg.dpi) })
             # populate front face with all colors
-            inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
+            if self.options.with_front:
+                inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
         if self.options.with_sides:
+          ## 1) Sort the entries in paths3d_2 with zsort2d()
+          ## 2) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
           for path in paths3d_2:
             if path['edge_visible'][0]:
               inkex.etree.SubElement(g2, 'path', { 'id': 'path_e1_id'+str(missing_id), 'style': path['edge_style'], 'd': paths_to_svgd([path['edge_data'][0]], 25.4/svg.dpi) })
