@@ -1429,6 +1429,7 @@ import inkex
 import gettext
 
 CMP_EPS = 0.000001
+debugging_zsort = True          # add sorting numbers and arrows to perimeter shell
 
 # python2 compatibility. Inkscape runs us with python2!
 if sys.version_info.major < 3:
@@ -1686,7 +1687,7 @@ Option parser example:
         def cmp_f(a, b):
           " comparing floating point is hideous. "
           d = a - b
-          if d > CMP_EPS: return 1
+          if d >  CMP_EPS: return  1
           if d < -CMP_EPS: return -1
           return 0
 
@@ -1739,7 +1740,7 @@ Option parser example:
 
         def y_at_x(gp, gv, x):
           dx = x-gp[0]
-          if abs(gv[0]) < eps:
+          if abs(gv[0]) < CMP_EPS:
             return None
           s = dx/gv[0]
           if s < 0.0 or s > 1.0:
@@ -1782,28 +1783,28 @@ Option parser example:
           #
           y = y_at_x(g1p, g1v, g2[0][0])
           if y is not None:
-            if y < g2[0][1]-eps: return -1
-            if y > g2[0][1]+eps: return 1
+            if y < g2[0][1]-CMP_EPS: return -1
+            if y > g2[0][1]+CMP_EPS: return  1
           #
           y = y_at_x(g1p, g1v, g2[1][0])
           if y is not None:
-            if y < g2[1][1]-eps: return -1
-            if y > g2[1][1]+eps: return 1
+            if y < g2[1][1]-CMP_EPS: return -1
+            if y > g2[1][1]+CMP_EPS: return  1
           #
           g2p = g2[0]
           g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
           y = y_at_x(g2p, g2v, g1[0][0])
           if y is not None:
-            if g1[0][1]-eps < y: return -1
-            if g1[0][1]+eps > y: return 1
+            if g1[0][1]-CMP_EPS < y: return -1
+            if g1[0][1]+CMP_EPS > y: return  1
           #
           y = y_at_x(g2p, g2v, g1[1][0])
           if y is not None:
-            if g1[1][1]-eps < y: return -1
-            if g1[1][1]+eps > y: return 1
+            if g1[1][1]-CMP_EPS < y: return -1
+            if g1[1][1]+CMP_EPS > y: return  1
           #
           # non-overlapping. keep the index order.
-          if g1[2] == g2[2]: return 0
+          if g1[2] == g2[2]: return  0
           if g1[2] <  g2[2]: return -1
           return 1
 
@@ -1814,8 +1815,8 @@ Option parser example:
           x-y plane of point 0,0,1 relative to the negative Y axis.
           """
           (x2d_vec, y2d_vec, dummy) = np.matmul( [0,0,-1], R )
-          if abs(x2d_vec) < eps:
-            if abs(y2d_vec) < eps: return 0.0
+          if abs(x2d_vec) < CMP_EPS:
+            if abs(y2d_vec) < CMP_EPS: return 0.0
             phi = 0.5*np.pi
             if y2d_vec < 0:
               phi = -0.5*np.pi
@@ -1831,7 +1832,6 @@ Option parser example:
           if phi >= 2*np.pi:
             phi -= 2*np.pi      # adjustment to remain within 0..359.9999 deg
           return phi
-
 
         ## end import from test_zsort2d.py
 
@@ -1889,30 +1889,6 @@ Option parser example:
           sx, sy = scaleFromM(transform)
           return 0.5 * (abs(sx)+abs(sy))
 
-
-        def phi2D(R):
-          """
-          Given a 3D rotation matrix R, we compute the angle phi projected in the
-          x-y plane of point 0,0,1 relative to the negative Y axis.
-          """
-          (x2d_vec, y2d_vec, dummy) = np.matmul( [0,0,-1], R )
-          if abs(x2d_vec) < CMP_EPS:
-            if abs(y2d_vec) < CMP_EPS: return 0.0
-            phi = 0.5*np.pi
-            if y2d_vec < 0:
-              phi = -0.5*np.pi
-            else:
-              phi = 0.5*np.pi
-          else:
-            phi = np.arctan(y2d_vec/x2d_vec)
-          if x2d_vec < 0:       # adjustment for quadrant II and III
-            phi += np.pi
-          elif y2d_vec < 0:     # adjustment for quadrant IV
-            phi += 2*np.pi
-          phi += 0.5*np.pi      # adjustment for starting with 0 deg at neg Y-axis.
-          if phi >= 2*np.pi:
-            phi -= 2*np.pi      # adjustment to remain within 0..359.9999 deg
-          return phi
 
 
         # user rotation
@@ -2027,7 +2003,7 @@ Option parser example:
               # paths3d_1 is the front face: rotate p3d_1 into 3D space according to R
               paths3d_1.append(np.matmul(p3d_1, R))
               for i in range(0, len(path)-1):
-                paths2d_flat.append([path[i], path[i+1]])
+                paths2d_flat.append([path[i], path[i+1], len(paths2d_flat)])
               if extrude:
                 # paths3d_3 is the back face: translate p3d_1 along z-axis then rotate into 3D space according to R
                 p3d_1 += [0, 0, depth]
@@ -2039,10 +2015,9 @@ Option parser example:
                   for i in range(0, len(paths3d_1[-1])-1):
                     a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                     c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
-                    idx = len(paths3d_2)
                     paths3d_2.append({
-                      'orig_idx': idx,
-                      'orig_2Dpath': paths2d_flat[idx],
+                      'orig_2Dpath': paths2d_flat[len(paths3d_2)],
+                      'orig_idx': len(paths3d_2),
                       'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
@@ -2057,19 +2032,32 @@ Option parser example:
                 inkex.etree.SubElement(g1, 'path', { 'id': path_id+'1', 'style': style, 'd': paths_to_svgd(paths3d_1, 25.4/svg.dpi) })
 
         if self.options.with_sides:
-          ## 1) Sort the entries in paths3d_2 with cmp2D() "frontmost last"
+          ## 1) rotate paths2d_flat for cmp2D()
+          # if debugging_zsort:
+          #   visualize the original and rotated paths2d_flat in blue, thin and thick.
+
+
+          ## 2) Sort the entries in paths3d_2 with cmp2D() "frontmost last"
           # prepare a rotated version of the original two-D line set 'orig_2Dpath'
           # so that cmp2D can sort towards negaive Y-Axis
           k = functools.cmp_to_key(cmp2D)
 
-          ## 2) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
+
+          ## 3) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
+          if debugging_zsort:
+            arrow_dir_deg = -15    # direction of the down arrow in degrees. 0 is south. -45 is south-east
+            arrow_dir_deg = phi2D(R) * 180 / np.pi
+            inkex.etree.SubElement(g2,   'path', { 'id': 'path_downarrow_id'+str(missing_id),
+              'transform': "rotate("+str(arrow_dir_deg)+",0,0)",
+              'style': "stroke:#0000ff;stroke-width:0.1;fill:none",
+              'd': "m -2,40 2,10 2,-10 M 0,0 0,45" })
 
           ## add the sorted elements to the dom tree.
           sorted_idx = 0
           for path in paths3d_2:
             inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
-            ### DEBUGGING output
-            inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
+            if debugging_zsort:
+              inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
                 'style': 'font-size:3px;fill:#0000ff',
                 'x': str(path_c4(path['data'], 0, 25.4/svg.dpi)),
                 'y': str(path_c4(path['data'], 1, 25.4/svg.dpi))
