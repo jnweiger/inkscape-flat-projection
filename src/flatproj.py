@@ -324,7 +324,7 @@ Option parser example:
             existing_ids = map(lambda x: x.attrib.get('id', ''), list(dest_layer))
             n = 0;
             if src_id is None:
-                print("Please select one or more objects.", file=dev.stderr)
+                print("Please select one or more objects.", file=sys.stderr)
                 return
             print("find_selected_id:\n", src_id, node, file=self.tty)
             id = src_id+'_'+str(n)
@@ -442,29 +442,50 @@ Option parser example:
           #
           y = y_at_x(g1p, g1v, g2[0][0])
           if y is not None:
-            if y < g2[0][1]-CMP_EPS: return -1
-            if y > g2[0][1]+CMP_EPS: return  1
+            if y < g2[0][1]-CMP_EPS:
+              print("cmp2D g1p, g2[0]: ", g1[2], g2[2], "return -1", y, g2[0][1], file=sys.stderr)
+              return -1
+            if y > g2[0][1]+CMP_EPS:
+              print("cmp2D g1p, g2[0]: ", g1[2], g2[2], "return 1", y, g2[0][1], file=sys.stderr)
+              return  1
           #
           y = y_at_x(g1p, g1v, g2[1][0])
           if y is not None:
-            if y < g2[1][1]-CMP_EPS: return -1
-            if y > g2[1][1]+CMP_EPS: return  1
+            if y < g2[1][1]-CMP_EPS:
+              print("cmp2D g1p, g2[1]: ", g1[2], g2[2], "return -1", y, g2[1][1], file=sys.stderr)
+              return -1
+            if y > g2[1][1]+CMP_EPS:
+              print("cmp2D g1p, g2[1]: ", g1[2], g2[2], "return 1", y, g2[1][1], file=sys.stderr)
+              return  1
           #
           g2p = g2[0]
           g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
           y = y_at_x(g2p, g2v, g1[0][0])
           if y is not None:
-            if g1[0][1]-CMP_EPS < y: return -1
-            if g1[0][1]+CMP_EPS > y: return  1
+            if g1[0][1]-CMP_EPS < y:
+              print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return -1", g1[0][1], y, file=sys.stderr)
+              return -1
+            if g1[0][1]+CMP_EPS > y:
+              print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return 1", g1[0][1], y, file=sys.stderr)
+              return  1
           #
           y = y_at_x(g2p, g2v, g1[1][0])
           if y is not None:
-            if g1[1][1]-CMP_EPS < y: return -1
-            if g1[1][1]+CMP_EPS > y: return  1
+            if g1[1][1]-CMP_EPS < y:
+              print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return -1", g1[1][1], y, file=sys.stderr)
+              return -1
+            if g1[1][1]+CMP_EPS > y:
+              print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return 1", g1[1][1], y, file=sys.stderr)
+              return  1
           #
           # non-overlapping. keep the index order.
-          if g1[2] == g2[2]: return  0
-          if g1[2] <  g2[2]: return -1
+          if g1[2] == g2[2]:
+            print("cmp2D non-over..: ", g1[2], g2[2], "return 0", file=sys.stderr)
+            return  0
+          if g1[2] <  g2[2]:
+            print("cmp2D non-over..: ", g1[2], g2[2], "return -1", file=sys.stderr)
+            return -1
+          print("cmp2D non-over..: ", g1[2], g2[2], "return 1", file=sys.stderr)
           return 1
 
 
