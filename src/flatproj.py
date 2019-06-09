@@ -88,7 +88,7 @@ import inkex
 import gettext
 
 CMP_EPS = 0.000001
-debugging_zsort = True          # add sorting numbers and arrows to perimeter shell
+debugging_zsort = True          # Add sorting numbers and arrows to perimeter shell; print lists to tty.
 
 # python2 compatibility. Inkscape runs us with python2!
 if sys.version_info.major < 3:
@@ -620,7 +620,7 @@ Option parser example:
             proj_scale = 1.0
 
         R = np.matmul(genSc(proj_scale), np.matmul(uR, np.matmul(Ry, Rx)))
-        Rz2D = genRz2D(phi2D(R))
+        Rz2D = genRz2D(-phi2D(R))
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         v = np.matmul([[0,0,depth]], R)         # test in which way depth points
@@ -692,14 +692,32 @@ Option parser example:
 
         if self.options.with_sides:
           ## 1) rotate paths2d_flat for cmp2D()
-          # if debugging_zsort:
+          paths2d_flat_rot = []
+          for i in range(len(paths2d_flat)):
+            l = paths2d_flat[i]
+            paths2d_flat_rot.append([np.matmul(l[0], Rz2D), np.matmul(l[1], Rz2D)]+l[2:])
           #   visualize the original and rotated paths2d_flat in blue, thin and thick.
+          if debugging_zsort:
+            for i in range(len(paths2d_flat)):
+              print("[paths2d_flat[i][:2]]: ", i, paths2d_flat[i], file=self.tty)
+              inkex.etree.SubElement(g2,   'path', { 'id': 'path_flat_orig_id'+str(missing_id)+'_'+str(i),
+                'style': "stroke:#0000ff;stroke-width:0.1;stroke-dasharray:0.1,0.3;fill:none",
+                'd': paths_to_svgd([paths2d_flat[i][:2]], 25.4/svg.dpi) })
+            for i in range(len(paths2d_flat_rot)):
+              print("paths2d_flat_rot[i][0]: ", i, paths2d_flat_rot[i], file=self.tty)
+              inkex.etree.SubElement(g2,   'path', { 'id': 'path_flat_rot_id'+str(missing_id)+'_'+str(i),
+                'style': "stroke:#0000ff;stroke-width:0.5;fill:none",
+                'd': paths_to_svgd([paths2d_flat_rot[i][:2]], 25.4/svg.dpi) })
 
 
           ## 2) Sort the entries in paths3d_2 with cmp2D() "frontmost last"
           # prepare a rotated version of the original two-D line set 'orig_2Dpath'
           # so that cmp2D can sort towards negaive Y-Axis
           k = functools.cmp_to_key(cmp2D)
+          if debugging_zsort:
+            print("np.degrees(phi2D(R)): ", np.degrees(phi2D(R)), file=self.tty)
+            for l in sorted(paths2d_flat_rot, key=k):
+              print("sorted(paths2d_flat_rot): ", l, file=self.tty)
 
 
           ## 3) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
