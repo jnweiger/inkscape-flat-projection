@@ -23,6 +23,9 @@
 # 2019-05-12, jw, v0.9  using zsort2d, no debugging needed, but code incomplete.
 #                       * obsoleted: fix zcmp() to implement correct depth sorting of quads
 #                       * obsoleted: fix zcmp() to sort edges always above their adjacent faces
+# 2019-06-012, jw,      sorted(.... key=...) cannot do what we need.
+#                       Compare http://code.activestate.com/recipes/578272-topological-sort/
+#                       https://en.wikipedia.org/wiki/Partially_ordered_set
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -434,7 +437,7 @@ Option parser example:
           """
           returns -1 if g1 sorts in front of g2
           returns 1  if g1 sorts in behind g2
-          returns 0  if there was no clear decision
+          returns 0  if there was no clear decision     # this is WRONG! We need a partial order!
           """
           # convert g1 into point and vector:
           g1p = g1[0]
@@ -462,19 +465,19 @@ Option parser example:
           g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
           y = y_at_x(g2p, g2v, g1[0][0])
           if y is not None:
-            if g1[0][1]-CMP_EPS < y:
+            if g1[0][1]+CMP_EPS < y:
               print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return -1", g1[0][1], y, file=sys.stderr)
               return -1
-            if g1[0][1]+CMP_EPS > y:
+            if g1[0][1]-CMP_EPS > y:
               print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return 1", g1[0][1], y, file=sys.stderr)
               return  1
           #
           y = y_at_x(g2p, g2v, g1[1][0])
           if y is not None:
-            if g1[1][1]-CMP_EPS < y:
+            if g1[1][1]+CMP_EPS < y:
               print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return -1", g1[1][1], y, file=sys.stderr)
               return -1
-            if g1[1][1]+CMP_EPS > y:
+            if g1[1][1]-CMP_EPS > y:
               print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return 1", g1[1][1], y, file=sys.stderr)
               return  1
           #

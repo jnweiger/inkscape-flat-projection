@@ -1803,19 +1803,19 @@ Option parser example:
           g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
           y = y_at_x(g2p, g2v, g1[0][0])
           if y is not None:
-            if g1[0][1]-CMP_EPS < y:
+            if g1[0][1]+CMP_EPS < y:
               print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return -1", g1[0][1], y, file=sys.stderr)
               return -1
-            if g1[0][1]+CMP_EPS > y:
+            if g1[0][1]-CMP_EPS > y:
               print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return 1", g1[0][1], y, file=sys.stderr)
               return  1
           #
           y = y_at_x(g2p, g2v, g1[1][0])
           if y is not None:
-            if g1[1][1]-CMP_EPS < y:
+            if g1[1][1]+CMP_EPS < y:
               print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return -1", g1[1][1], y, file=sys.stderr)
               return -1
-            if g1[1][1]+CMP_EPS > y:
+            if g1[1][1]-CMP_EPS > y:
               print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return 1", g1[1][1], y, file=sys.stderr)
               return  1
           #
