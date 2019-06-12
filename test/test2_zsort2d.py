@@ -19,6 +19,36 @@
 # References: https://docs.python.org/3.3/howto/sorting.html
 #
 # We only have a partial ordering. Thus Schwarzian transform cannot be used.
+# - There is no way, we can extend the poset to a total ordered set. E.g. given a line and its mirror image about the y-axis. Their order depends only on how they are connected.
+#
+# ------------------------------------------------
+# Sorting algorithm ideas:
+#  * X-coordinates.
+#    - Put all x-coordinates in a list, sort them.
+#    - Scan through the list from left to right. For each x-position,
+#      - record how lines start and end, creating the set of overlapping lines for each x-position.
+#      - in every overlap-set, compute the corresponding y-coordinate. Sort the set by this y-coordinate.
+#    - merge overlap sets with their neighbours.
+#      - if no line spans between the two, just concatenate.
+#      - if lines span across them, things get messy here. toposort?
+#
+#  * Insert sort.
+#    - maintain a set of sorted lists, where each list remembers its last insert index.
+#    - for each line:
+#      - try all lists in the set:
+#        - compare with the element at the last insert index.
+#        - if uncomparable, continue with the next list in the set.
+#        - if larger or smaller, move the index up/down in the list.
+#          - repeat until the relationship inverts, or an end of the list is reached.
+#          - insert there. Continue with the next list.
+#    - as soon as the same entry is added to a second list, merge the two lists.
+#    - this may get messy again. toposort?
+#
+# The insert sort actually could use any sort algorithm within the list. (silly bubble sort specified here)
+# It is critical to be able to specify the last insert index as a start point for the sort algorithm.
+# We have a good reason to assume the next inserted line is very often directly before or after the last one.
+# This assumption is based on the fact that the lines are presented in a certain order and form a closed outline.
+# ------------------------------------------------
 #
 # For best compatibility with python2 and python3 we choose the method using
 # functools.cmp_to_key() with an old style cmp parameter function.
