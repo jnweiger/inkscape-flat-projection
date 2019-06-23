@@ -22,6 +22,8 @@
 # - There is no way, we can extend the poset to a total ordered set. E.g. given a line and its mirror image about the y-axis. Their order depends only on how they are connected.
 #
 # ------------------------------------------------
+# References: https://en.wikipedia.org/wiki/Topological_sorting
+#
 # Sorting algorithm ideas:
 #  * X-coordinates.
 #    - Put all x-coordinates in a list, sort them.
@@ -56,6 +58,12 @@
 from __future__ import print_function
 import functools
 import numpy as np
+try:
+  # a drop in replacement that does fast inserts and slices...
+  from blist import blist as list
+except:
+  pass
+
 
 test_zsort =[
  [np.array([-226.00871524, -259.85624955]), np.array([-101.37448199, -345.03852612]), 0],
@@ -98,6 +106,64 @@ test_zsort =[
 # [np.array([ -41.13541555, -402.09163395]), np.array([ -73.14606261, -373.34773047]), 37]
 ]
 
+class PoList():
+  """
+  A list object that remembers its last insert point and implements a merge sort
+  using an old fashioned compare function.
+  """
+  def __init__(self, cmp_fn=None):
+    self.cmp = cmp_fn
+    self.pol = list([])
+    self.idx = -1
+#
+#
+  def merge(self, other):
+    """
+    Try to add elemente other to the list. Returns False if it could not be compared.
+    """
+    if len(self.pol) == 0:
+      self.pol.append(other)
+      self.idx = 0
+      print("initial add\t#", other)
+      return True
+    idx = self.idx
+    r = self.cmp(self.pol[idx], other)  
+    print("cmp", idx, "-> ", r, "\t#", other)
+    if r == None:
+      # try find a comparable position.
+      for i in range(len(self.pol)):
+        r = self.cmp(self.pol[i], other)
+        if r is not None:
+          idx = i
+          break
+      # if none found, return false.
+      print("scan, givng up", "\t#", other)
+      return False
+    if r < 0:
+      # it sorts before the current entry
+      for i in reversed(range(idx)):
+        r = self.cmp(self.pol[i], other)
+        if r is None or r > 0:
+          # insert after i
+          idx = i + 1
+          self.pol[idx:idx] = list([other])
+          break
+    else:
+      # it sorts after the current entry.
+      for i in range(idx+1, len(self.pol)):
+        r = self.cmp(self.pol[i], other)
+        if r is None or r < 0:
+          # insert before i
+          idx = i
+          self.pol[idx:idx] = list([other])
+          break
+ 
+
+
+# END of class PoList
+# -------------------------------------------
+
+
 
 eps = 1e-100
 
@@ -115,7 +181,7 @@ def cmp2D(g1, g2):
   """
   returns -1 if g1 sorts in front of g2
   returns 1  if g1 sorts in behind g2
-  returns 0  if there was no clear decision
+  returns None  if there was no clear decision
   """
   # convert g1 into point and vector:
   g1p = g1[0]
@@ -157,6 +223,11 @@ for p in test_zsort:
 
 print("sorted:")
 
-for p in sorted(test_zsort, key=k):
-  print(p)
+# for p in sorted(test_zsort, key=k):
+#  print(p)
 
+a = PoList(cmp2D)
+for p in test_zsort:
+  a.merge(p)
+
+print(a.pol)
