@@ -126,37 +126,45 @@ class PoList():
       self.idx = 0
       print("initial add\t#", other)
       return True
-    idx = self.idx
-    r = self.cmp(self.pol[idx], other)  
-    print("cmp", idx, "-> ", r, "\t#", other)
+    oidx = self.idx
+    idx = oidx
+    r = self.cmp(self.pol[oidx], other)  
+    print("oidx", oidx, "-> ", r, "\t#", other)
     if r == None:
-      # try find a comparable position.
+      # try find a comparable start position.
       for i in range(len(self.pol)):
         r = self.cmp(self.pol[i], other)
         if r is not None:
-          idx = i
+          oidx = i
           break
       # if none found, return false.
       print("scan, givng up", "\t#", other)
       return False
     if r < 0:
+      idx = 0
       # it sorts before the current entry
-      for i in reversed(range(idx)):
+      for i in reversed(range(oidx)):
         r = self.cmp(self.pol[i], other)
         if r is None or r > 0:
           # insert after i
           idx = i + 1
-          self.pol[idx:idx] = list([other])
           break
+      print("before\t##", self.pol[idx], "\ninsert\t#", other)
+      self.pol[idx:idx] = list([other])
+      self.idx = idx
     else:
+      idx = len(self.pol)
       # it sorts after the current entry.
-      for i in range(idx+1, len(self.pol)):
+      for i in range(oidx+1, len(self.pol)):
         r = self.cmp(self.pol[i], other)
         if r is None or r < 0:
           # insert before i
           idx = i
-          self.pol[idx:idx] = list([other])
           break
+      print("after\t##", idx-1, len(self.pol))
+      print("after\t##", self.pol[idx-1], "\ninsert\t#", other)
+      self.pol[idx:idx] = list([other])
+      self.idx = idx
  
 
 
@@ -230,4 +238,5 @@ a = PoList(cmp2D)
 for p in test_zsort:
   a.merge(p)
 
-print(a.pol)
+for p in a.pol:
+  print(p)
