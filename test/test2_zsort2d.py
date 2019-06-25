@@ -46,23 +46,17 @@
 #    - as soon as the same entry is added to a second list, merge the two lists.
 #    - this may get messy again. toposort?
 #
-# The insert sort actually could use any sort algorithm within the list. (silly bubble sort specified here)
-# It is critical to be able to specify the last insert index as a start point for the sort algorithm.
-# We have a good reason to assume the next inserted line is very often directly before or after the last one.
-# This assumption is based on the fact that the lines are presented in a certain order and form a closed outline.
+#  * proper topological sort
+#    - build a dependency graph. Probably O(n^2) ?
+#    - run tsort, implement Kahn's algorithm from https://en.wikipedia.org/wiki/Topological_sorting
+#      or Don Knuths algoritm T from p.266 of The_Art_of_Computer_Programming-Vol1.pdf
+#
 # ------------------------------------------------
 #
-# For best compatibility with python2 and python3 we choose the method using
-# functools.cmp_to_key() with an old style cmp parameter function.
 
 from __future__ import print_function
-import functools
 import numpy as np
-try:
-  # a drop in replacement that does fast inserts and slices...
-  from blist import blist as list
-except:
-  pass
+from collections import defaultdict     # minimum python 2.5
 
 
 test_zsort =[
@@ -106,69 +100,70 @@ test_zsort =[
 # [np.array([ -41.13541555, -402.09163395]), np.array([ -73.14606261, -373.34773047]), 37]
 ]
 
-class PoList():
-  """
-  A list object that remembers its last insert point and implements a merge sort
-  using an old fashioned compare function.
-  """
-  def __init__(self, cmp_fn=None):
-    self.cmp = cmp_fn
-    self.pol = list([])
-    self.idx = -1
-#
-#
-  def merge(self, other):
+class TSort:
     """
-    Try to add elemente other to the list. Returns False if it could not be compared.
+    Kahn's Algorithm for topological ordering
+    FROM: https://www.geeksforgeeks.org/topological-sorting-indegree-based-solution/
     """
-    if len(self.pol) == 0:
-      self.pol.append(other)
-      self.idx = 0
-      print("initial add\t#", other)
-      return True
-    oidx = self.idx
-    idx = oidx
-    r = self.cmp(self.pol[oidx], other)  
-    print("oidx", oidx, "-> ", r, "\t#", other)
-    if r == None:
-      # try find a comparable start position.
-      for i in range(len(self.pol)):
-        r = self.cmp(self.pol[i], other)
-        if r is not None:
-          oidx = i
-          break
-      # if none found, return false.
-      print("scan, givng up", "\t#", other)
-      return False
-    if r < 0:
-      idx = 0
-      # it sorts before the current entry
-      for i in reversed(range(oidx)):
-        r = self.cmp(self.pol[i], other)
-        if r is None or r > 0:
-          # insert after i
-          idx = i + 1
-          break
-      print("before\t##", self.pol[idx], "\ninsert\t#", other)
-      self.pol[idx:idx] = list([other])
-      self.idx = idx
-    else:
-      idx = len(self.pol)
-      # it sorts after the current entry.
-      for i in range(oidx+1, len(self.pol)):
-        r = self.cmp(self.pol[i], other)
-        if r is None or r < 0:
-          # insert before i
-          idx = i
-          break
-      print("after\t##", idx-1, len(self.pol))
-      print("after\t##", self.pol[idx-1], "\ninsert\t#", other)
-      self.pol[idx:idx] = list([other])
-      self.idx = idx
- 
+
+    def __init__(self, vertices):
+        self.graph = defaultdict(list)  # dictionary of adjacency List
+        self.V = vertices               # No. of vertices
+
+    def addPre(self, u, v):
+        """
+        This is directed edge. A prerequisite v must exist before u can be realized.
+        """
+        self.graph[u].append(v)
+
+    def sort(self):
+        # Create a vector to store indegrees of all vertices.
+        # Initialize all indegrees as 0.
+        in_degree = [0]*(self.V)
+
+        # Traverse adjacency lists to fill indegrees of vertices.
+        # This step takes O(V+E) time
+        for i in self.graph:
+            for j in self.graph[i]:
+                in_degree[j] += 1
+
+        # Create an queue and enqueue all vertices with indegree 0
+        queue = []
+        for i in range(self.V):
+            if in_degree[i] == 0:
+                queue.append(i)
+
+        #Initialize count of visited vertices
+        cnt = 0
+
+        # Create a vector to store result (A topological ordering of the vertices)
+        top_order = []
+
+        # One by one dequeue vertices from queue and enqueue
+        # adjacents if indegree of adjacent becomes 0
+        while queue:
+
+            # Extract front of queue (or perform dequeue)
+            # and add it to topological order
+            u = queue.pop(0)
+            top_order.append(u)
+
+            # Iterate through all neighbouring nodes
+            # of dequeued node u and decrease their in-degree by 1
+            for i in self.graph[u]:
+                in_degree[i] -= 1
+                # If in-degree becomes zero, add it to queue
+                if in_degree[i] == 0:
+                    queue.append(i)
+            cnt += 1
+
+        # Check if there was a cycle
+        if cnt != self.V:
+            raise Exception("cyclic dependency")
+        return top_order
 
 
-# END of class PoList
+# END of class TSort
 # -------------------------------------------
 
 
@@ -224,19 +219,21 @@ def cmp2D(g1, g2):
   return None   # non-comparable pair in the poset. sorted() would take that as less than aka -1
 
 
-k = functools.cmp_to_key(cmp2D)
-
 for p in test_zsort:
   print(p)
 
 print("sorted:")
 
-# for p in sorted(test_zsort, key=k):
-#  print(p)
+k = TSort(len(test_zsort))
+for i in range(len(test_zsort)):
+  for j in range(i+1, len(test_zsort)):
+    r = cmp2D(test_zsort[i], test_zsort[j])
+    if r is not None:
+      if r < 0:
+        k.addPre(i, j)
+      if r > 0:
+        k.addPre(j, i)
 
-a = PoList(cmp2D)
-for p in test_zsort:
-  a.merge(p)
-
-for p in a.pol:
+sorted = k.sort()
+for p in sorted:
   print(p)
