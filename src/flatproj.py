@@ -356,6 +356,12 @@ Option parser example:
           if d < -CMP_EPS: return -1
           return 0
 
+        def same_point3d(a, b):
+          if cmp_f(a[0], b[0]): return False
+          if cmp_f(a[1], b[1]): return False
+          if cmp_f(a[2], b[2]): return False
+          return True
+
         def points_to_svgd(p, scale=1.0):
           " convert list of points into a closed SVG path list"
           f = p[0]
@@ -748,14 +754,25 @@ Option parser example:
               if r is not None:
                 if r < 0: k.addPre(i, j)
                 if r > 0: k.addPre(j, i)
-          zsorted = k.sort()
+          zsort_idx = k.sort()
           if debugging_zsort:
             print("np.degrees(phi2D(R)): ", np.degrees(phi2D(R)), file=self.tty)
-            for l in zsorted:
-              print("zsorted(paths2d_flat_rot): ", l, file=self.tty)
+            for l in zsort_idx:
+              print("sorted(paths2d_flat_rot): ", l, file=self.tty)
 
 
           ## 3) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
+          for i in range(plen):
+            for j in range(i+1, plen):
+              path1 = paths3d_2[zsort_idx[i]]:
+              path2 = paths3d_2[zsort_idx[j]]:
+              if same_point3d(path1['edge_data'][0][0], path2['edge_data'][0][0]) or
+                 same_point3d(path1['edge_data'][1][0], path2['edge_data'][0][0]):
+                path2['edge_visible'][0] = 0
+              if same_point3d(path1['edge_data'][0][0], path2['edge_data'][1][0]) or
+                 same_point3d(path1['edge_data'][1][0], path2['edge_data'][1][0]):
+                path2['edge_visible'][1] = 0
+
           if debugging_zsort:
             arrow_dir_deg = -15    # direction of the down arrow in degrees. 0 is south. -45 is south-east
             arrow_dir_deg = phi2D(R) * 180 / np.pi
@@ -766,7 +783,8 @@ Option parser example:
 
           ## add the sorted elements to the dom tree.
           sorted_idx = 0
-          for path in paths3d_2:
+          for i in zsort_idx:
+            path = paths3d_2[i]:
             inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             if debugging_zsort:
               inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
