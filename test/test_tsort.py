@@ -56,7 +56,9 @@
 
 from __future__ import print_function
 import numpy as np
-from collections import defaultdict     # minimum python 2.5
+import sys
+sys.path.append('../src/')
+from tsort import TSort
 
 
 test_zsort =[
@@ -99,74 +101,6 @@ test_zsort =[
 # [np.array([ -65.35569453, -429.06454673]), np.array([ -41.13541555, -402.09163395]), 36],
 # [np.array([ -41.13541555, -402.09163395]), np.array([ -73.14606261, -373.34773047]), 37]
 ]
-
-class TSort:
-    """
-    Kahn's Algorithm for topological ordering
-    FROM: https://www.geeksforgeeks.org/topological-sorting-indegree-based-solution/
-    """
-
-    def __init__(self, vertices):
-        self.graph = defaultdict(list)  # dictionary of adjacency List
-        self.V = vertices               # No. of vertices
-
-    def addPre(self, u, v):
-        """
-        This is directed edge. A prerequisite v must exist before u can be realized.
-        """
-        self.graph[u].append(v)
-
-    def sort(self):
-        # Create a vector to store indegrees of all vertices.
-        # Initialize all indegrees as 0.
-        in_degree = [0]*(self.V)
-
-        # Traverse adjacency lists to fill indegrees of vertices.
-        # This step takes O(V+E) time
-        for i in self.graph:
-            for j in self.graph[i]:
-                in_degree[j] += 1
-
-        # Create an queue and enqueue all vertices with indegree 0
-        queue = []
-        for i in range(self.V):
-            if in_degree[i] == 0:
-                queue.append(i)
-
-        #Initialize count of visited vertices
-        cnt = 0
-
-        # Create a vector to store result (A topological ordering of the vertices)
-        top_order = []
-
-        # One by one dequeue vertices from queue and enqueue
-        # adjacents if indegree of adjacent becomes 0
-        while queue:
-
-            # Extract front of queue (or perform dequeue)
-            # and add it to topological order
-            u = queue.pop(0)
-            top_order.append(u)
-
-            # Iterate through all neighbouring nodes
-            # of dequeued node u and decrease their in-degree by 1
-            for i in self.graph[u]:
-                in_degree[i] -= 1
-                # If in-degree becomes zero, add it to queue
-                if in_degree[i] == 0:
-                    queue.append(i)
-            cnt += 1
-
-        # Check if there was a cycle
-        if cnt != self.V:
-            raise Exception("cyclic dependency")
-        return top_order
-
-
-# END of class TSort
-# -------------------------------------------
-
-
 
 eps = 1e-100
 
@@ -237,3 +171,5 @@ for i in range(len(test_zsort)):
 sorted = k.sort()
 for p in sorted:
   print(p)
+assert(sorted == [16, 17, 15, 18, 14, 19, 13, 20, 12, 21, 11, 22, 10, 23, 9, 24, 8, 25, 7, 27, 28, 0, 6, 26, 29, 1, 4, 5, 2, 3])
+print("OK.")

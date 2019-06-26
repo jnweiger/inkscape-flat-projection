@@ -26,6 +26,8 @@
 # 2019-06-012, jw,      sorted(.... key=...) cannot do what we need.
 #                       Compare http://code.activestate.com/recipes/578272-topological-sort/
 #                       https://en.wikipedia.org/wiki/Partially_ordered_set
+# 2019-06-26, jw, v0.9.1  Use TSort from src/tsort.py -- much better than my ZSort or zsort2d attempts.
+#                         Donald Knuth, taocp(2.2.3): "It is hard to imagine a faster algorithm for this problem!"
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -84,6 +86,7 @@ else:   # Linux
 ## INLINE_BLOCK_START
 # for easier distribution, our Makefile can inline these imports when generating flat-projection.py from src/flatproj.py
 from inksvg import InkSvg, LinearPathGen
+from tsort import TSort
 ## INLINE_BLOCK_END
 
 import json
@@ -102,7 +105,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.9'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.9.1'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -737,11 +740,19 @@ Option parser example:
           ## 2) Sort the entries in paths3d_2 with cmp2D() "frontmost last"
           # prepare a rotated version of the original two-D line set 'orig_2Dpath'
           # so that cmp2D can sort towards negaive Y-Axis
-          k = functools.cmp_to_key(cmp2D)
+          plen = len(paths2d_flat_rot)
+          k = TSort(plen)
+          for i in range(plen):
+            for j in range(i+1, plen):
+              r = cmp2D(paths2d_flat_rot[i], paths2d_flat_rot[j])
+              if r is not None:
+                if r < 0: k.addPre(i, j)
+                if r > 0: k.addPre(j, i)
+          zsorted = k.sort()
           if debugging_zsort:
             print("np.degrees(phi2D(R)): ", np.degrees(phi2D(R)), file=self.tty)
-            for l in sorted(paths2d_flat_rot, key=k):
-              print("sorted(paths2d_flat_rot): ", l, file=self.tty)
+            for l in zsorted:
+              print("zsorted(paths2d_flat_rot): ", l, file=self.tty)
 
 
           ## 3) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
