@@ -153,8 +153,8 @@ def cmp2D(g1, g2):
   return None   # non-comparable pair in the poset. sorted() would take that as less than aka -1
 
 
-for p in test_zsort:
-  print(p)
+# for p in test_zsort:
+#   print(p)
 
 print("sorted:")
 
@@ -169,7 +169,8 @@ for i in range(len(test_zsort)):
         k.addPre(j, i)
 
 sorted = k.sort()
-for p in sorted:
-  print(p)
+# for p in sorted:
+#   print(p)
+print(sorted)
 assert(sorted == [16, 17, 15, 18, 14, 19, 13, 20, 12, 21, 11, 22, 10, 23, 9, 24, 8, 25, 7, 27, 28, 0, 6, 26, 29, 1, 4, 5, 2, 3])
 print("OK.")

@@ -17,7 +17,8 @@ build: $(EXTNAME).py
 dist:   build check
 	cd distribute; sh ./distribute.sh
 
-check:
+.PHONY: test
+check test:
 	sh test/test.sh
 
 

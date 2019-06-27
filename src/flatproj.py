@@ -94,7 +94,7 @@ import inkex
 import gettext
 
 CMP_EPS = 0.000001
-debugging_zsort = True          # Add sorting numbers and arrows to perimeter shell; print lists to tty.
+debugging_zsort = False          # Add sorting numbers and arrows to perimeter shell; print lists to tty.
 
 # python2 compatibility. Inkscape runs us with python2!
 if sys.version_info.major < 3:
@@ -438,15 +438,49 @@ Option parser example:
         # References: https://docs.python.org/3.3/howto/sorting.html
         #
         # We only have a partial ordering. Thus Schwarzian transform cannot be used.
+        # - There is no way, we can extend the poset to a total ordered set.
+        #   E.g. given a line and its mirror image about the y-axis. Their order
+        #   depends only on how they are connected.
         #
-        # For best compatibility with python2 and python3 we choose the method using
-        # functools.cmp_to_key() with an old style cmp parameter function.
+        # ------------------------------------------------
+        # References: https://en.wikipedia.org/wiki/Topological_sorting
+        #             https://www-cs-faculty.stanford.edu/~knuth/taocp.html
+        #
+        # Sorting algorithm ideas:
+        #  * X-coordinates.
+        #    - Put all x-coordinates in a list, sort them.
+        #    - Scan through the list from left to right. For each x-position,
+        #      - record how lines start and end, creating the set of overlapping lines for each x-position.
+        #      - in every overlap-set, compute the corresponding y-coordinate. Sort the set by this y-coordinate.
+        #    - merge overlap sets with their neighbours.
+        #      - if no line spans between the two, just concatenate.
+        #      - if lines span across them, things get messy here. toposort?
+        #
+        #  * Insert sort.
+        #    - maintain a set of sorted lists, where each list remembers its last insert index.
+        #    - for each line:
+        #      - try all lists in the set:
+        #        - compare with the element at the last insert index.
+        #        - if uncomparable, continue with the next list in the set.
+        #        - if larger or smaller, move the index up/down in the list.
+        #          - repeat until the relationship inverts, or an end of the list is reached.
+        #          - insert there. Continue with the next list.
+        #    - as soon as the same entry is added to a second list, merge the two lists.
+        #    - this may get messy again. toposort?
+        #
+        #  * proper topological sort
+        #    - build a dependency graph. Probably O(n^2) ?
+        #    - run tsort, implement Kahn's algorithm from https://en.wikipedia.org/wiki/Topological_sorting
+        #      or Don Knuths algoritm T from p.266 of The_Art_of_Computer_Programming-Vol1.pdf
+        #
+        # ------------------------------------------------
+        #
         #
         def cmp2D(g1, g2):
           """
           returns -1 if g1 sorts in front of g2
           returns 1  if g1 sorts in behind g2
-          returns 0  if there was no clear decision     # this is WRONG! We need a partial order!
+          returns None  if there was no clear decision
           """
           # convert g1 into point and vector:
           g1p = g1[0]
@@ -454,51 +488,27 @@ Option parser example:
           #
           y = y_at_x(g1p, g1v, g2[0][0])
           if y is not None:
-            if y < g2[0][1]-CMP_EPS:
-              print("cmp2D g1p, g2[0]: ", g1[2], g2[2], "return -1", y, g2[0][1], file=sys.stderr)
-              return -1
-            if y > g2[0][1]+CMP_EPS:
-              print("cmp2D g1p, g2[0]: ", g1[2], g2[2], "return 1", y, g2[0][1], file=sys.stderr)
-              return  1
+            if y < g2[0][1]-CMP_EPS: return -1
+            if y > g2[0][1]+CMP_EPS: return 1
           #
           y = y_at_x(g1p, g1v, g2[1][0])
           if y is not None:
-            if y < g2[1][1]-CMP_EPS:
-              print("cmp2D g1p, g2[1]: ", g1[2], g2[2], "return -1", y, g2[1][1], file=sys.stderr)
-              return -1
-            if y > g2[1][1]+CMP_EPS:
-              print("cmp2D g1p, g2[1]: ", g1[2], g2[2], "return 1", y, g2[1][1], file=sys.stderr)
-              return  1
+            if y < g2[1][1]-CMP_EPS: return -1
+            if y > g2[1][1]+CMP_EPS: return 1
           #
           g2p = g2[0]
           g2v = (g2[1][0] - g2[0][0], g2[1][1] - g2[0][1])
           y = y_at_x(g2p, g2v, g1[0][0])
           if y is not None:
-            if g1[0][1]+CMP_EPS < y:
-              print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return -1", g1[0][1], y, file=sys.stderr)
-              return -1
-            if g1[0][1]-CMP_EPS > y:
-              print("cmp2D g2p, g1[0]: ", g1[2], g2[2], "return 1", g1[0][1], y, file=sys.stderr)
-              return  1
+            if g1[0][1]+CMP_EPS < y: return -1
+            if g1[0][1]-CMP_EPS > y: return 1
           #
           y = y_at_x(g2p, g2v, g1[1][0])
           if y is not None:
-            if g1[1][1]+CMP_EPS < y:
-              print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return -1", g1[1][1], y, file=sys.stderr)
-              return -1
-            if g1[1][1]-CMP_EPS > y:
-              print("cmp2D g2p, g1[1]: ", g1[2], g2[2], "return 1", g1[1][1], y, file=sys.stderr)
-              return  1
+            if g1[1][1]+CMP_EPS < y: return -1
+            if g1[1][1]-CMP_EPS > y: return 1
           #
-          # non-overlapping. keep the index order.
-          if g1[2] == g2[2]:
-            print("cmp2D non-over..: ", g1[2], g2[2], "return 0", file=sys.stderr)
-            return  0
-          if g1[2] <  g2[2]:
-            print("cmp2D non-over..: ", g1[2], g2[2], "return -1", file=sys.stderr)
-            return -1
-          print("cmp2D non-over..: ", g1[2], g2[2], "return 1", file=sys.stderr)
-          return 1
+          return None   # non-comparable pair in the poset. sorted() would take that as less than aka -1
 
 
         def phi2D(R):
@@ -764,12 +774,12 @@ Option parser example:
           ## 3) compare each enabled edge with all enabled edges following in the sorted list. In case of conicidence disable the edge that followed.
           for i in range(plen):
             for j in range(i+1, plen):
-              path1 = paths3d_2[zsort_idx[i]]:
-              path2 = paths3d_2[zsort_idx[j]]:
-              if same_point3d(path1['edge_data'][0][0], path2['edge_data'][0][0]) or
+              path1 = paths3d_2[zsort_idx[i]]
+              path2 = paths3d_2[zsort_idx[j]]
+              if same_point3d(path1['edge_data'][0][0], path2['edge_data'][0][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][0][0]):
                 path2['edge_visible'][0] = 0
-              if same_point3d(path1['edge_data'][0][0], path2['edge_data'][1][0]) or
+              if same_point3d(path1['edge_data'][0][0], path2['edge_data'][1][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][1][0]):
                 path2['edge_visible'][1] = 0
 
@@ -784,7 +794,7 @@ Option parser example:
           ## add the sorted elements to the dom tree.
           sorted_idx = 0
           for i in zsort_idx:
-            path = paths3d_2[i]:
+            path = paths3d_2[i]
             inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             if debugging_zsort:
               inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
