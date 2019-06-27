@@ -99,9 +99,9 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
 </param>
 
-      <!-- Keep in sync with src/proj.py line 46 __version__ = ... -->
+      <!-- Keep in sync with src/flatproj.py line 110 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.9</param>
+      <param name="about_version" type="description">Version 0.9.2</param>
     </page>
   </param>
 

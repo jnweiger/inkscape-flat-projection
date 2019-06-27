@@ -28,6 +28,7 @@
 #                       https://en.wikipedia.org/wiki/Partially_ordered_set
 # 2019-06-26, jw, v0.9.1  Use TSort from src/tsort.py -- much better than my ZSort or zsort2d attempts.
 #                         Donald Knuth, taocp(2.2.3): "It is hard to imagine a faster algorithm for this problem!"
+# 2019-06-27, jw, v0.9.2  import SvgColor from src/svgcolor.py -- code added, still unused
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -1280,6 +1281,108 @@ class TSort:
             raise Exception("cyclic dependency")
         return top_order
 
+#! /usr/bin/python
+#
+# 'yellowgreen': '#9acd32'
+
+import simplestyle
+
+class SvgColor:
+    """ Manipulate color strings for svg style attributes """
+    def __init__(self, str):
+        if type(str) == list or type(str) == tuple:
+           self._rgb = list(str)
+        else:
+           self._rgb = list(simplestyle.parseColor(str))
+
+    def _rgb_to_hsl(self, rgb):
+        (r, g, b) = (float(rgb[0]), float(rgb[1]), float(rgb[2]))
+        rgb_max = max (max (r, g), b)
+        rgb_min = min (min (r, g), b)
+        delta = rgb_max - rgb_min
+        hsl = [0.0, 0.0, 0.0]
+        hsl[2] = (rgb_max + rgb_min)/2.0
+        if delta == 0:
+            hsl[0] = 0.0
+            hsl[1] = 0.0
+        else:
+            if hsl[2] <= 0.5:
+                hsl[1] = delta / (rgb_max + rgb_min)
+            else:
+                hsl[1] = delta / (2 - rgb_max - rgb_min)
+            if r == rgb_max:
+                hsl[0] = (g - b) / delta
+            else:
+                if g == rgb_max:
+                    hsl[0] = 2.0 + (b - r) / delta
+                else:
+                    if b == rgb_max:
+                        hsl[0] = 4.0 + (r - g) / delta
+            hsl[0] = hsl[0] / 6.0
+            if hsl[0] < 0:
+                hsl[0] = hsl[0] + 1
+            if hsl[0] > 1:
+                hsl[0] = hsl[0] - 1
+        return hsl
+
+    def _hue_2_rgb(self, v1, v2, h):
+        if h < 0:
+            h += 6.0
+        if h > 6:
+            h -= 6.0
+        if h < 1:
+            return v1 + (v2 - v1) * h
+        if h < 3:
+            return v2
+        if h < 4:
+            return v1 + (v2 - v1) * (4 - h)
+        return v1
+
+    def _hsl_to_rgb(self, hsl):
+        (h, s, l) = (hsl[0], hsl[1], hsl[2])
+        rgb = [0, 0, 0]
+        if s == 0:
+            rgb[0] = l
+            rgb[1] = l
+            rgb[2] = l
+        else:
+            if l < 0.5:
+                v2 = l * (1 + s)
+            else:
+                v2 = l + s - l*s
+            v1 = 2*l - v2
+            rgb[0] = self._hue_2_rgb (v1, v2, h*6 + 2.0)
+            rgb[1] = self._hue_2_rgb (v1, v2, h*6)
+            rgb[2] = self._hue_2_rgb (v1, v2, h*6 - 2.0)
+        return rgb
+
+    def _clamp_rgb(self, rgb):
+        rgb[0] = min(max(rgb[0], 0), 255)
+        rgb[1] = min(max(rgb[1], 0), 255)
+        rgb[2] = min(max(rgb[2], 0), 255)
+        return rgb
+
+    def rgb(self):
+        return self._rgb
+
+    def hsl(self):
+        return self._rgb_to_hsl(self._rgb)
+
+    def adjust_light(self, adjust):
+        """ visible adjustments are +/- 10, adust=255 produces white, adjust=-255 produces black """
+        hsl = self._rgb_to_hsl(self._rgb)
+        hsl[2] += adjust
+        self._rgb = self._hsl_to_rgb(hsl)
+        return self._rgb
+
+    def __repr__(self):
+        rgb = self._clamp_rgb(self._rgb)
+        return "#%02x%02x%02x" % (int(rgb[0]+.5), int(rgb[1]+.5), int(rgb[2]+.5))
+
+    def __str__(self):
+        return self.__repr__()
+
+
 
 import json
 import inkex
@@ -1297,7 +1400,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.9.1'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.9.2'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -1882,7 +1985,6 @@ Option parser example:
             style_d_nostroke = style_d.copy()
             style_d_nostroke['stroke'] = 'none'
             style = fmtPathStyle(style_d)
-            style_nostroke = fmtPathStyle(style_d_nostroke)
 
             if path_id == suf:
               path_id = 'pathx'+str(missing_id)+suf
@@ -1915,7 +2017,7 @@ Option parser example:
                       'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
-                      'style': style_nostroke,
+                      'style_d': style_d_nostroke,
                       'data': [a,b,d,c,a]})
 
             if extrude and self.options.with_back:
@@ -1970,10 +2072,10 @@ Option parser example:
               path2 = paths3d_2[zsort_idx[j]]
               if same_point3d(path1['edge_data'][0][0], path2['edge_data'][0][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][0][0]):
-                path2['edge_visible'][0] = 0
+                path1['edge_visible'][0] = 0
               if same_point3d(path1['edge_data'][0][0], path2['edge_data'][1][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][1][0]):
-                path2['edge_visible'][1] = 0
+                path1['edge_visible'][1] = 0
 
           if debugging_zsort:
             arrow_dir_deg = -15    # direction of the down arrow in degrees. 0 is south. -45 is south-east
@@ -1987,7 +2089,10 @@ Option parser example:
           sorted_idx = 0
           for i in zsort_idx:
             path = paths3d_2[i]
-            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
+            style_d = path['style_d']
+            # TODO: modulate face color with shading, corresponding to the angle.
+            style = fmtPathStyle(style_d)
+            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': style, 'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             if debugging_zsort:
               inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
                 'style': 'font-size:3px;fill:#0000ff',

@@ -28,6 +28,7 @@
 #                       https://en.wikipedia.org/wiki/Partially_ordered_set
 # 2019-06-26, jw, v0.9.1  Use TSort from src/tsort.py -- much better than my ZSort or zsort2d attempts.
 #                         Donald Knuth, taocp(2.2.3): "It is hard to imagine a faster algorithm for this problem!"
+# 2019-06-27, jw, v0.9.2  import SvgColor from src/svgcolor.py -- code added, still unused
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -87,6 +88,7 @@ else:   # Linux
 # for easier distribution, our Makefile can inline these imports when generating flat-projection.py from src/flatproj.py
 from inksvg import InkSvg, LinearPathGen
 from tsort import TSort
+from svgcolor import SvgColor
 ## INLINE_BLOCK_END
 
 import json
@@ -105,7 +107,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.9.1'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.9.2'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -690,7 +692,6 @@ Option parser example:
             style_d_nostroke = style_d.copy()
             style_d_nostroke['stroke'] = 'none'
             style = fmtPathStyle(style_d)
-            style_nostroke = fmtPathStyle(style_d_nostroke)
 
             if path_id == suf:
               path_id = 'pathx'+str(missing_id)+suf
@@ -723,7 +724,7 @@ Option parser example:
                       'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
-                      'style': style_nostroke,
+                      'style_d': style_d_nostroke,
                       'data': [a,b,d,c,a]})
 
             if extrude and self.options.with_back:
@@ -778,10 +779,10 @@ Option parser example:
               path2 = paths3d_2[zsort_idx[j]]
               if same_point3d(path1['edge_data'][0][0], path2['edge_data'][0][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][0][0]):
-                path2['edge_visible'][0] = 0
+                path1['edge_visible'][0] = 0
               if same_point3d(path1['edge_data'][0][0], path2['edge_data'][1][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][1][0]):
-                path2['edge_visible'][1] = 0
+                path1['edge_visible'][1] = 0
 
           if debugging_zsort:
             arrow_dir_deg = -15    # direction of the down arrow in degrees. 0 is south. -45 is south-east
@@ -795,7 +796,10 @@ Option parser example:
           sorted_idx = 0
           for i in zsort_idx:
             path = paths3d_2[i]
-            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'],      'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
+            style_d = path['style_d']
+            # TODO: modulate face color with shading, corresponding to the angle.
+            style = fmtPathStyle(style_d)
+            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': style, 'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             if debugging_zsort:
               inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
                 'style': 'font-size:3px;fill:#0000ff',
