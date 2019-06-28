@@ -7,7 +7,8 @@
   <dependency type="executable" location="extensions">inkex.py</dependency>
   <dependency type="executable" location="extensions">flat-projection.py</dependency>
   <param name="tab" type="notebook">
-    <page name='settings' gui-text='Settings'>
+    <page name='view' gui-text='View'>
+
       <param name="settings_what" type="description" xml:space="preserve">Flat-projection rotates an object into 3D space, then projects it back on the 2D plane.</param>
       <param name="header_cut" type="description" appearance="header">Optionally rotate before projection</param>
 
@@ -54,8 +55,8 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
       </param>
 
     </page>
+    <page name='colors' gui-text='Colors'>
 
-    <page name='advanced' gui-text='Advanced'>
       <param name="depth" type="float" min="0" max="1000" gui-text="Depth ('z-size') [mm]">3.2</param>
       <param name="apply_depth" type="enum" gui-text="Apply depth to:">
             <item value="red">stroke color red</item>
@@ -69,6 +70,16 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
             <item value="any">any stroke color</item>
             <item value="none">nothing</item>
       </param>
+
+      <param name="spacer" type="description"> </param>
+
+      <param name="shading" type="float" min="0" max="100" gui-text="Flat shading [%]">20</param>
+      <param name="shading_help" type="description">Compute lightness change of surfaces. Surfaces with a normal at 90° with the ray direction are unaffected. 100% colors a face white, when its normal is the ray direction, and black when it is opposite. Use 0 to disable shading.</param>
+      <param name="ray_direction" type="string" gui-text="Direction of the light source [x,y,z]">1,2,0</param>
+
+    </page>
+    <page name='advanced' gui-text='Advanced'>
+
       <param name="spacer" type="description"> </param>
       <param name="stroke_width" type="string" gui-text="Override stroke-width [mm]">0.1</param>
       <param name="stroke_width_help" type="description">Enforce a uniform stroke-width on generated objects. Enter '=' to use the stroke-widths as computed by inksvg.py -- (sometimes wrong!)</param>
@@ -87,7 +98,6 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
       <param name="with_sides_desc"  type="description">Render perimeter faces. May take awhile for complex shapes.</param>
       <param name="with_back" type="boolean" gui-text="Render back wall">true</param>
       <param name="with_back_desc"  type="description">Disabling both side walls and back walls is the same as applying depth==0.0</param>
-
     </page>
 
     <page name='about' gui-text='About '>
@@ -101,7 +111,7 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <!-- Keep in sync with src/flatproj.py line 110 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.9.2</param>
+      <param name="about_version" type="description">Version 0.9.3</param>
     </page>
   </param>
 

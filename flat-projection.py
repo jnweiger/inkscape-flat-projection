@@ -29,6 +29,7 @@
 # 2019-06-26, jw, v0.9.1  Use TSort from src/tsort.py -- much better than my ZSort or zsort2d attempts.
 #                         Donald Knuth, taocp(2.2.3): "It is hard to imagine a faster algorithm for this problem!"
 # 2019-06-27, jw, v0.9.2  import SvgColor from src/svgcolor.py -- code added, still unused
+# 2019-06-28, jw, v0.9.3  added shading options.
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -1400,7 +1401,7 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.9.2'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.9.3'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
@@ -1495,6 +1496,14 @@ Option parser example:
         self.OptionParser.add_option(
             '--dest_layer', dest='dest_layer', type='string', default='3d-proj', action='store',
             help='Place transformed objects into a specific svg document layer. Empty preserves layer.')
+
+        self.OptionParser.add_option(
+            '--ray_direction', dest='ray_direction', type='string', default='1,2,0', action='store',
+            help='Direction of the lightsource used for shading. Default: 1,2,0.')
+
+        self.OptionParser.add_option(
+            '--shading', dest='shading', type='float', default=float(20), action='store',
+            help='Flat shading percentage. Compute lightness change of surfaces. Surfaces with a normal at 90 degrees with the ray direction are unaffected. 100% colors a face white, when its normal is the ray direction, and black when it is oposite. Use 0 to disable shading. Default(%): 20')
 
         self.OptionParser.add_option(
             '--smoothness', dest='smoothness', type='float', default=float(0.2), action='store',
@@ -1701,6 +1710,13 @@ Option parser example:
           s = ''
           for key in sty: s += str(key)+':'+str(sty[key])+';'
           return s.rstrip(';')
+
+        ## compute angle between two vectors in 3D
+        def vector_angle_3d(a, b):
+           norm_ab = np.linalg.norm(a) * np.linalg.norm(b)
+           if norm_ab == 0.: return 0
+           return np.arccos(np.dot(a,b) / norm_ab)
+
 
         ## import from test_zsort2d.py
 
@@ -1967,7 +1983,7 @@ Option parser example:
         else:
             backview = False
 
-        paths2d_flat = []                       # one list of all line segments.
+        paths2d_flat = []                       # one list of all line segments. Used for index sorting of side faces.
         paths3d_2 = []                          # side: visible edges and faces
         for tupl in paths_tupls:
             (elem, paths, transform) = tupl
@@ -1998,9 +2014,8 @@ Option parser example:
               p3d_1[:,:-1] = path       # magic numpy slicing ..
               # paths3d_1 is the front face: rotate p3d_1 into 3D space according to R
               paths3d_1.append(np.matmul(p3d_1, R))
-              for i in range(0, len(path)-1):
-                paths2d_flat.append([path[i], path[i+1], len(paths2d_flat)])
               if extrude:
+
                 # paths3d_3 is the back face: translate p3d_1 along z-axis then rotate into 3D space according to R
                 p3d_1 += [0, 0, depth]
                 paths3d_3.append(np.matmul(p3d_1, R))
@@ -2008,17 +2023,26 @@ Option parser example:
                 # paths3d_2 holds all permimeter faces: beware of z-sort dragons.
                 ##########################
                 if self.options.with_sides:
+                  for i in range(0, len(path)-1):
+                    paths2d_flat.append([path[i], path[i+1], len(paths2d_flat)])
                   for i in range(0, len(paths3d_1[-1])-1):
                     a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                     c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
+                    style_d2_nostroke = style_d_nostroke.copy()
+                    if self.options.shading > 0 and 'fill' in style_d2_nostroke:
+                      # modulate face color with shading, corresponding to the angle.
+                      fill = style_d2_nostroke['fill']
+                      style_d2_nostroke['fill'] = fill
+                    style_2_nostroke = fmtPathStyle(style_d2_nostroke)
                     paths3d_2.append({
                       'orig_2Dpath': paths2d_flat[len(paths3d_2)],
                       'orig_idx': len(paths3d_2),
                       'edge_style': style,
                       'edge_data': [[a, b], [c, d]],
                       'edge_visible': [1, 1],
-                      'style_d': style_d_nostroke,
+                      'style': style_2_nostroke,
                       'data': [a,b,d,c,a]})
+                  assert(len(paths2d_flat) == len(paths3d_2))
 
             if extrude and self.options.with_back:
                 # populate back face with selected colors only
@@ -2069,6 +2093,10 @@ Option parser example:
           for i in range(plen):
             for j in range(i+1, plen):
               path1 = paths3d_2[zsort_idx[i]]
+              if j > len(zsort_idx):
+                print("len(zsort_idx):", len(zsort_idx), "j:", j, file=self.tty)
+              if zsort_idx[j] > len(paths3d_2):
+                print("len(paths3d_2):", len(paths3d_2), "zsort_idx[j]:", zsort_idx[j], "j:", j, file=self.tty)
               path2 = paths3d_2[zsort_idx[j]]
               if same_point3d(path1['edge_data'][0][0], path2['edge_data'][0][0]) or \
                  same_point3d(path1['edge_data'][1][0], path2['edge_data'][0][0]):
@@ -2089,10 +2117,7 @@ Option parser example:
           sorted_idx = 0
           for i in zsort_idx:
             path = paths3d_2[i]
-            style_d = path['style_d']
-            # TODO: modulate face color with shading, corresponding to the angle.
-            style = fmtPathStyle(style_d)
-            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': style, 'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
+            inkex.etree.SubElement(g2,   'path', { 'id': 'path_e_id'+str(missing_id),  'style': path['style'], 'd': paths_to_svgd([path['data']], 25.4/svg.dpi) })
             if debugging_zsort:
               inkex.etree.SubElement(g2,   'text', { 'id': 'text_e_id'+str(missing_id),
                 'style': 'font-size:3px;fill:#0000ff',
