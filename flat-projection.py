@@ -1502,7 +1502,7 @@ Option parser example:
             help='Direction of the lightsource used for shading. Default: 1,2,0.')
 
         self.OptionParser.add_option(
-            '--shading', dest='shading', type='float', default=float(20), action='store',
+            '--shading', dest='shading_perc', type='float', default=float(20), action='store',
             help='Flat shading percentage. Compute lightness change of surfaces. Surfaces with a normal at 90 degrees with the ray direction are unaffected. 100% colors a face white, when its normal is the ray direction, and black when it is oposite. Use 0 to disable shading. Default(%): 20')
 
         self.OptionParser.add_option(
@@ -1550,6 +1550,26 @@ Option parser example:
           if id in self.selected: return id
           node = node.getparent()
         return None
+
+    def apply_shading(self, fill, normal):
+        """
+        Apply self.options.shading_perc to the fill color, depending on the angle between
+        self.options.ray_direction and normal. fill is lightened when the angle is less
+        than 90 deg, and darkened when it is more than 90 deg.
+        """
+
+        ## compute angle between two vectors in 3D
+        def vector_angle_3d(a, b):
+           norm_ab = np.linalg.norm(a) * np.linalg.norm(b)
+           if norm_ab == 0.: return 0
+           return np.arccos(np.dot(a,b) / norm_ab)
+
+        ray = np.array(list(map(lambda x: float(x), self.options.ray_direction.split(','))))
+        alpha = 90-np.degrees(vector_angle_3d(ray, normal))
+        c = SvgColor(fill)
+        c.adjust_ligh(alpha*2.55/90 * float(self.options.shading_perc))
+        print("apply_shading: alpha=", alpha, " -> adjust_ligh(", alpha*2.55/90 * float(self.options.shading_perc), ")", file=self.tty)
+        return str(c)
 
 
     def effect(self):
@@ -1710,13 +1730,6 @@ Option parser example:
           s = ''
           for key in sty: s += str(key)+':'+str(sty[key])+';'
           return s.rstrip(';')
-
-        ## compute angle between two vectors in 3D
-        def vector_angle_3d(a, b):
-           norm_ab = np.linalg.norm(a) * np.linalg.norm(b)
-           if norm_ab == 0.: return 0
-           return np.arccos(np.dot(a,b) / norm_ab)
-
 
         ## import from test_zsort2d.py
 
@@ -2029,10 +2042,10 @@ Option parser example:
                     a, b = paths3d_1[-1][i],   paths3d_3[-1][i]
                     c, d = paths3d_1[-1][i+1], paths3d_3[-1][i+1]
                     style_d2_nostroke = style_d_nostroke.copy()
-                    if self.options.shading > 0 and 'fill' in style_d2_nostroke:
+                    if self.options.shading_perc > 0 and 'fill' in style_d2_nostroke:
                       # modulate face color with shading, corresponding to the angle.
                       fill = style_d2_nostroke['fill']
-                      style_d2_nostroke['fill'] = fill
+                      style_d2_nostroke['fill'] = self.apply_shading(fill, np.cross(np.array(b)-np.array(a), np.array(c)-np.array(a)))
                     style_2_nostroke = fmtPathStyle(style_d2_nostroke)
                     paths3d_2.append({
                       'orig_2Dpath': paths2d_flat[len(paths3d_2)],
