@@ -73,9 +73,9 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <param name="spacer" type="description"> </param>
 
-      <param name="shading" type="float" min="0" max="100" gui-text="Flat shading [%]">20</param>
+      <param name="shading" type="float" min="0" max="100" gui-text="Flat shading [%]">10</param>
       <param name="shading_help" type="description">Compute lightness change of surfaces. Surfaces with a normal at 90° with the ray direction are unaffected. 100% colors a face white, when its normal is the ray direction, and black when it is opposite. Use 0 to disable shading.</param>
-      <param name="ray_direction" type="string" gui-text="Direction of the light source [x,y,z]">1,2,0</param>
+      <param name="ray_direction" type="string" gui-text="Direction of the light source [x,y,z]">1,-2,-1</param>
 
     </page>
     <page name='advanced' gui-text='Advanced'>

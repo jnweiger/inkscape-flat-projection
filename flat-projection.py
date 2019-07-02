@@ -1498,12 +1498,12 @@ Option parser example:
             help='Place transformed objects into a specific svg document layer. Empty preserves layer.')
 
         self.OptionParser.add_option(
-            '--ray_direction', dest='ray_direction', type='string', default='1,2,0', action='store',
-            help='Direction of the lightsource used for shading. Default: 1,2,0.')
+            '--ray_direction', dest='ray_direction', type='string', default='1,-2,-1', action='store',
+            help='Direction of the lightsource used for shading. Default: 1,-2,-1.')
 
         self.OptionParser.add_option(
-            '--shading', dest='shading_perc', type='float', default=float(20), action='store',
-            help='Flat shading percentage. Compute lightness change of surfaces. Surfaces with a normal at 90 degrees with the ray direction are unaffected. 100% colors a face white, when its normal is the ray direction, and black when it is oposite. Use 0 to disable shading. Default(%): 20')
+            '--shading', dest='shading_perc', type='float', default=float(10), action='store',
+            help='Flat shading percentage. Compute lightness change of surfaces. Surfaces with a normal at 90 degrees with the ray direction are unaffected. 100% colors a face white, when its normal is the ray direction, and black when it is oposite. Use 0 to disable shading. Default(%): 10')
 
         self.OptionParser.add_option(
             '--smoothness', dest='smoothness', type='float', default=float(0.2), action='store',
@@ -1567,8 +1567,8 @@ Option parser example:
         ray = np.array(list(map(lambda x: float(x), self.options.ray_direction.split(','))))
         alpha = 90-np.degrees(vector_angle_3d(ray, normal))
         c = SvgColor(fill)
-        c.adjust_ligh(alpha*2.55/90 * float(self.options.shading_perc))
-        print("apply_shading: alpha=", alpha, " -> adjust_ligh(", alpha*2.55/90 * float(self.options.shading_perc), ")", file=self.tty)
+        c.adjust_light(alpha*2.55/90 * float(self.options.shading_perc))
+        print("apply_shading: alpha=", alpha, " -> adjust_light(", alpha*2.55/90 * float(self.options.shading_perc), ")", file=self.tty)
         return str(c)
 
 
@@ -1987,7 +1987,8 @@ Option parser example:
             proj_scale = 1.0
 
         R = np.matmul(genSc(proj_scale), np.matmul(uR, np.matmul(Ry, Rx)))
-        Rz2D = genRz2D(-phi2D(R))
+        Rz2D = genRz2D(-phi2D(R))                # FIXME: should be -phi2D(R)
+        print("phi2D(R)", -phi2D(R), file=self.tty)
 
         missing_id = int(10000*time.time())     # use a timestamp, in case there are objects without id.
         v = np.matmul([[0,0,depth]], R)         # test in which way depth points
