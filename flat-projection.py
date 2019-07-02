@@ -30,6 +30,7 @@
 #                         Donald Knuth, taocp(2.2.3): "It is hard to imagine a faster algorithm for this problem!"
 # 2019-06-27, jw, v0.9.2  import SvgColor from src/svgcolor.py -- code added, still unused
 # 2019-06-28, jw, v0.9.3  added shading options.
+# 2019-07-01, jw, v0.9.4  Fixed manual rotation.
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -1947,11 +1948,11 @@ Option parser example:
             inkex.errormsg("unknown standard_rotation="+self.options.standard_rotation+" -- use one of x+90, x-90, y+90, y-90, y+180, z+90, or z-90")
             sys.exit(1)
         else:
-          Rx = genRx(np.radians(float(self.options.manual_rotation_x)))
-          Ry = genRx(np.radians(float(self.options.manual_rotation_y)))
-          Rz = genRx(np.radians(float(self.options.manual_rotation_z)))
+          Rx = genRx(np.radians(self.options.manual_rotation_x))
+          Ry = genRy(np.radians(self.options.manual_rotation_y))
+          Rz = genRz(np.radians(self.options.manual_rotation_z))
           uR = np.matmul(Rx, np.matmul(Ry, Rz))
-          proj_rot = self.options.manual_rotation_x+','+self.options.manual_rotation_y+','+self.options.manual_rotation_z
+          proj_rot = str(self.options.manual_rotation_x)+','+str(self.options.manual_rotation_y)+','+str(self.options.manual_rotation_z)
 
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))

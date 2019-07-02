@@ -11,7 +11,11 @@
 
       <param name="settings_what" type="description" xml:space="preserve">Flat-projection rotates an object into 3D space, then projects it back on the 2D plane.</param>
       <param name="header_cut" type="description" appearance="header">Optionally rotate before projection</param>
+      <param name="spacer" type="description"> </param>
 
+      <param name="depth" type="float" min="0" max="1000" gui-text="Depth ('z-size') [mm]">3.2</param>
+
+      <param name="spacer" type="description"> </param>
       <param name="rotation_type" type="notebook">
         <page name='standard_rotation' gui-text='Standard Rotation'>
           <param name="standard_rotation" type="enum" gui-text="">
@@ -57,7 +61,6 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
     </page>
     <page name='colors' gui-text='Colors'>
 
-      <param name="depth" type="float" min="0" max="1000" gui-text="Depth ('z-size') [mm]">3.2</param>
       <param name="apply_depth" type="enum" gui-text="Apply depth to:">
             <item value="red">stroke color red</item>
             <item value="red_black">stroke color red or black</item>
@@ -111,7 +114,7 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <!-- Keep in sync with src/flatproj.py line 110 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.9.3</param>
+      <param name="about_version" type="description">Version 0.9.4</param>
     </page>
   </param>
 
