@@ -31,6 +31,7 @@
 # 2019-06-27, jw, v0.9.2  import SvgColor from src/svgcolor.py -- code added, still unused
 # 2019-06-28, jw, v0.9.3  added shading options.
 # 2019-07-01, jw, v0.9.4  Fixed manual rotation.
+# 2019-07-08, jw, v0.9.5  extra rotation added. We sometimes need out of order rotations.
 #
 # TODO:
 #   * test: adjustment of line-width according to transformation.
@@ -1402,13 +1403,13 @@ if sys.version_info.major < 3:
 class FlatProjection(inkex.Effect):
 
     # CAUTION: Keep in sync with flat-projection.inx and flat-projection_de.inx
-    __version__ = '0.9.3'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
+    __version__ = '0.9.5'         # >= max(src/flatproj.py:__version__, src/inksvg.py:__version__)
 
     def __init__(self):
         """
 Option parser example:
 
-'flat-projection.py', '--id=g20151', '--tab=settings', '--rotation-type=standard_rotation', '--standard-rotation=x-90', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--projection-type="standard_projection"', '--standard-projection=7,42', '--standard-projection-autoscale=true', '--trimetric-projection-x=7', '--trimetric-projection-y=42', '--depth=3.2', '--apply-depth=red_black', '--stroke_width=0.1', '--dest-layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
+'flat-projection.py', '--id=g20151', '--tab=settings', '--rotation_type=standard_rotation', '--standard_rotation=x-90', '--standard_rotation_extra=X:0;Y:0;Z:0', '--manual_rotation_x=90', '--manual_rotation_y=0', '--manual_rotation_z=0', '--manual_rotation_extra=X:0;Y:0;Z:0', '--projection-type="standard_projection"', '--standard_projection=7,42', '--standard_projection_autoscale=true', '--trimetric_projection-x=7', '--trimetric_projection-y=42', '--depth=3.2', '--apply_depth=red_black', '--stroke_width=0.1', '--dest_layer=3d-proj', '--smoothness=0.2', '/tmp/ink_ext_XXXXXX.svgDTI8AZ']
 
         """
         # above example generated with inkex.errormsg(repr(sys.argv))
@@ -1451,6 +1452,14 @@ Option parser example:
         self.OptionParser.add_option(
             "--manual_rotation_z", action="store", type="float", dest="manual_rotation_z", default=float(0.0),
             help="Rotation angle about Z-Axis. Used when rotation_type=manual_rotation")
+
+        self.OptionParser.add_option(
+            "--manual_rotation_extra", action="store", type="string", dest="manual_rotation_extra", default="X:0;Y:0;Z:0",
+            help="Additional manual rotation expression. This allows any number of rotations in any order. Paste values of the proj_rot svg attribute here.")
+
+        self.OptionParser.add_option(
+            "--standard_rotation_extra", action="store", type="string", dest="standard_rotation_extra", default="X:0;Y:0;Z:0",
+            help="Alias for '--manual_rotation_extra', see there.")
 
         self.OptionParser.add_option(
             "--standard_projection", action="store", type="string", dest="standard_projection", default="7,42",
@@ -1639,7 +1648,7 @@ Option parser example:
 
         proj_scale = 1.0 # autoscale value: 1.063 for dimetric, 1.22 for isometric
         proj_yx = ''     # describe the projection as a string of two floating point angles as used with trimetric projection.
-        proj_rot = ''    # describe the user rotation as a string of three floating point angles.
+        proj_rot = 'X:0' # describe the user rotation as a string of multiple angles named with their axes ('A:nnn; ...')
         dest_ids = {}    # map from src_id to dest_id, so that we know if we already have one, or if we need to create one.
         dest_g = {}      # map from dest_id to (group element, suffix)
         def find_dest_g(node, dest_layer):
@@ -1917,31 +1926,64 @@ Option parser example:
           return 0.5 * (abs(sx)+abs(sy))
 
 
+        def parse_rot_expr(expr):
+          r = []
+          expr_n=0
+          rot = None
+          name = ''
+          splitter = ';'
+          if splitter not in expr:
+            splitter = ','
+          for term in re.sub("\s+", '', expr).split(splitter):
+            m = re.match('([xyz][:=])?(.*)', re.sub(',','.',term), re.I)
+            if m:
+              p = (m.group(1) or '').lower()
+              v = float(m.group(2))
+              if 'x' in p:
+                rot = genRx
+                name = 'X'
+              elif 'y' in p:
+                rot = genRy
+                name = 'Y'
+              elif 'z' in p:
+                rot = genRz
+                name = 'Z'
+              else:
+                rot = 'rot' + (genRx, genRy, genRz)[expr_n%3]
+                name = ('X', 'Y', 'Z')[expr_n%3]
+              r.append((rot, v, name))
+            else:
+              print("Unknown rotation expression: '%s'. Expected X:nnn" % term, file=sys.stderr)
+            expr_n += 1
+          return r
+
 
         # user rotation
         uR = genRx(np.radians(0.0))
+        extra_rot = self.options.manual_rotation_extra
         if self.options.rotation_type.strip(" '\"") == 'standard_rotation':
+          extra_rot = self.options.standard_rotation_extra
           if   self.options.standard_rotation == 'x+90':
             uR = genRx(np.radians(90.))
-            proj_rot = '90,0,0'
+            proj_rot = 'X:90; Y:0; Z:0'
           elif self.options.standard_rotation == 'x-90':
             uR = genRx(np.radians(-90.))
-            proj_rot = '-90,0,0'
+            proj_rot = 'X:-90; Y:0; Z:0'
           elif self.options.standard_rotation == 'y+90':
             uR = genRy(np.radians(90.))
-            proj_rot = '0,90,0'
+            proj_rot = 'X:0; Y:90; Z:0'
           elif self.options.standard_rotation == 'y+180':
             uR = genRy(np.radians(180.))
-            proj_rot = '0,180,0'
+            proj_rot = 'X:0; Y:180; Z:0'
           elif self.options.standard_rotation == 'y-90':
             uR = genRy(np.radians(-90.))
-            proj_rot = '0,-90,0'
+            proj_rot = 'X:0; Y:-90; Z:0'
           elif self.options.standard_rotation == 'z+90':
             uR = genRz(np.radians(90.))
-            proj_rot = '0,0,90'
+            proj_rot = 'X:0; Y:0; Z:90'
           elif self.options.standard_rotation == 'z-90':
             uR = genRz(np.radians(-90.))
-            proj_rot = '0,0,-90'
+            proj_rot = 'X:0; Y:0; Z:-90'
           elif self.options.standard_rotation == 'none':
             pass
           else:
@@ -1952,7 +1994,12 @@ Option parser example:
           Ry = genRy(np.radians(self.options.manual_rotation_y))
           Rz = genRz(np.radians(self.options.manual_rotation_z))
           uR = np.matmul(Rx, np.matmul(Ry, Rz))
-          proj_rot = str(self.options.manual_rotation_x)+','+str(self.options.manual_rotation_y)+','+str(self.options.manual_rotation_z)
+          proj_rot = 'X:'+str(self.options.manual_rotation_x)+'; Y:'+str(self.options.manual_rotation_y)+'; Z:'+str(self.options.manual_rotation_z)
+        # extra user rotation
+        for genR in parse_rot_expr(extra_rot):
+          proj_rot += '; '+genR[2]+':'+str(genR[1])
+          uR = np.matmul(uR, genR[0](np.radians(genR[1])))
+
 
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))

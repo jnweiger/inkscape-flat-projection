@@ -25,12 +25,16 @@
             <item value="y-90">Y-Axis: -90°	(right)</item>
             <item value="y+90">Y-Axis: +90°	(left)</item>
             <item value="y+180">Y-Axis: +180°	(back)</item>
-           </param>
+          </param>
+          <param name="spacer" type="description"> </param>
+          <param name="spacer" type="description"> </param>
+          <param name="standard_rotation_extra" type="string" gui-text="Additional rotations:">X:0; Y:0; Z:0</param>
         </page>
         <page name='manual_rotation' gui-text='Free Rotation'>
           <param name="manual_rotation_x" type="float" min="-360" max="360" appearance="full" gui-text="X-Axis [°]:  ">90</param>
           <param name="manual_rotation_y" type="float" min="-360" max="360" appearance="full" gui-text="Y-Axis [°]:  ">0</param>
           <param name="manual_rotation_z" type="float" min="-360" max="360" appearance="full" gui-text="Z-Axis [°]:  ">0</param>
+          <param name="manual_rotation_extra" type="string" gui-text="Additional rotations:">X:0; Y:0; Z:0</param>
         </page>
       </param>
 
@@ -114,7 +118,7 @@ Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.2
 
       <!-- Keep in sync with src/flatproj.py line 110 __version__ = ... -->
 
-      <param name="about_version" type="description">Version 0.9.4</param>
+      <param name="about_version" type="description">Version 0.9.5</param>
     </page>
   </param>
 
