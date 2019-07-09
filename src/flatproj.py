@@ -383,6 +383,7 @@ Option parser example:
             g = inkex.etree.SubElement(dest_layer, 'g', { 'id': id, 'proj_src': src_path, 'proj_depth': str(self.options.depth),
               'proj_apply_depth': self.options.apply_depth, 'proj_smoothness': str(self.options.smoothness),
               'proj_yx': proj_yx, 'proj_rot': proj_rot, 'proj_scale': str(proj_scale) })
+            inkex.etree.SubElement(g, 'desc', { 'id': 'desc'+id }).text = "proj_rot: "+proj_rot+"\nproj_yx: "+proj_yx+"\n"
             # created in reverse order, so that g1 sits on top of the visibility stack
             g3 = inkex.etree.SubElement(g, 'g', { 'id': id+'_3', 'src': src_path })
             g2 = inkex.etree.SubElement(g, 'g', { 'id': id+'_2', 'src': src_path })
@@ -672,25 +673,25 @@ Option parser example:
           extra_rot = self.options.standard_rotation_extra
           if   self.options.standard_rotation == 'x+90':
             uR = genRx(np.radians(90.))
-            proj_rot = 'X:90; Y:0; Z:0'
+            proj_rot = 'X:90.0; Y:0.0; Z:0.0'
           elif self.options.standard_rotation == 'x-90':
             uR = genRx(np.radians(-90.))
-            proj_rot = 'X:-90; Y:0; Z:0'
+            proj_rot = 'X:-90.0; Y:0.0; Z:0.0'
           elif self.options.standard_rotation == 'y+90':
             uR = genRy(np.radians(90.))
-            proj_rot = 'X:0; Y:90; Z:0'
+            proj_rot = 'X:0.0; Y:90; Z:0.0'
           elif self.options.standard_rotation == 'y+180':
             uR = genRy(np.radians(180.))
-            proj_rot = 'X:0; Y:180; Z:0'
+            proj_rot = 'X:0.0; Y:180; Z:0.0'
           elif self.options.standard_rotation == 'y-90':
             uR = genRy(np.radians(-90.))
-            proj_rot = 'X:0; Y:-90; Z:0'
+            proj_rot = 'X:0.0; Y:-90; Z:0.0'
           elif self.options.standard_rotation == 'z+90':
             uR = genRz(np.radians(90.))
-            proj_rot = 'X:0; Y:0; Z:90'
+            proj_rot = 'X:0.0; Y:0.0; Z:90'
           elif self.options.standard_rotation == 'z-90':
             uR = genRz(np.radians(-90.))
-            proj_rot = 'X:0; Y:0; Z:-90'
+            proj_rot = 'X:0.0; Y:0.0; Z:-90'
           elif self.options.standard_rotation == 'none':
             pass
           else:
@@ -706,7 +707,7 @@ Option parser example:
         for genR in parse_rot_expr(extra_rot):
           proj_rot += '; '+genR[2]+':'+str(genR[1])
           uR = np.matmul(uR, genR[0](np.radians(genR[1])))
-
+        proj_rot = re.sub('; [XYZ]:0.0','', proj_rot)   # zap empty rotation instructions.
 
         # default: dimetric 7,42
         Ry = genRy(np.radians(90-69.7))
@@ -738,7 +739,7 @@ Option parser example:
             # inkex.errormsg("free proj")
             Ry = genRy(np.radians(float(self.options.trimetric_projection_y)))
             Rx = genRx(np.radians(float(self.options.trimetric_projection_x)))
-            proj_yx = self.options.trimetric_projection_y+','+self.options.trimetric_projection_x
+            proj_yx = str(self.options.trimetric_projection_y)+','+str(self.options.trimetric_projection_x)
             proj_scale = 1.0
 
         R = np.matmul(genSc(proj_scale), np.matmul(uR, np.matmul(Ry, Rx)))

@@ -58,7 +58,7 @@
           <param name="trimetric_projection_y" type="float" min="-180" max="180" appearance="full" gui-text="Rotate Y [°]:  ">22.1</param>
           <param name="trimetric_projection_x" type="float" min="-180" max="180" appearance="full" gui-text="Rotate X [°]:  ">19.4</param>
            <param name="trimetric_projection_help" type="description">We first apply Y-axis, then X-axis rotation.
-Exmples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.26439°.</param>
+Examples: For Dimetric use y=22.1°; x=19.4° -- for Isometric use y=45°; x=35.26439°.</param>
         </page>
       </param>
 
